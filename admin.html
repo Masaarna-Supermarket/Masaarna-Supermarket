@@ -113,6 +113,8 @@ summary:hover{color:var(--saffron)}
 .fld--bad input{border-color:#b91c1c}
 .vrow{display:flex;align-items:center;gap:.5rem;padding:.32rem 0;border-bottom:1px solid var(--line);font-size:.78rem}
 .vrow:last-child{border-bottom:0}
+.chk{display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--ink2);cursor:pointer}
+.chk input{width:15px;height:15px;accent-color:var(--saffron);cursor:pointer}
 .vrow b{font-variant-numeric:tabular-nums;min-width:3.4rem;flex:none}
 .vrow time{color:var(--faint);font-size:.74rem;min-width:9.5rem;flex:none}
 /* the badge sizes to its word; the label takes the room; the note sits at the end */
@@ -163,9 +165,14 @@ summary:hover{color:var(--saffron)}
     <div class="row">
       <input class="inp" id="oapi" placeholder="https://masaarna.YOUR-NAME.workers.dev" style="min-width:20rem">
       <input class="inp" id="okey" type="password" placeholder="Admin key" autocomplete="off">
-      <button class="btn" id="osave">Remember</button>
+      <button class="btn" id="osave">Sign in</button>
+      <button class="btn btn--bad" id="osignout">Sign out</button>
       <button class="btn" id="opull">Load live catalog</button>
       <span class="msg msg--inf" id="cmsg"></span>
+    </div>
+    <div class="row" style="margin-top:.1rem">
+      <label class="chk"><input type="checkbox" id="okeep"> Stay signed in on this computer</label>
+      <span class="hint" id="idlehint"></span>
     </div>
   </div>
 
@@ -1004,15 +1011,83 @@ $("vdl").onclick=function(){
 };
 
 /* ── orders ─────────────────────────────────────────── */
+/* ── signing in and out ─────────────────────────────
+   There is no login screen, because there is no account: the admin key IS the
+   login. So "signed in" means this browser is holding the key, and "sign out"
+   means it lets go of it.
+
+   Where it is held is a real choice:
+     ticked   — localStorage, survives closing the browser. Your own computer.
+     unticked — sessionStorage, gone the moment this tab closes. A shared or
+                borrowed computer, or your phone in someone else's hand.
+   Unticked is the default, because the safer option should be the one you get
+   without thinking about it. */
+var IDLE_MINUTES=20, idleTimer=null;
+
+function readStore(k){
+  try{ return sessionStorage.getItem(k)||localStorage.getItem(k)||"" }catch(e){ return "" }
+}
 try{
   $("oapi").value=localStorage.getItem("mas_oapi")||String(window.MASAARNA_API||"");
-  $("okey").value=localStorage.getItem("mas_okey")||"";
+  $("okey").value=readStore("mas_okey");
+  $("okeep").checked=!!localStorage.getItem("mas_okey");
 }catch(e){ $("oapi").value=String(window.MASAARNA_API||"") }
-$("osave").onclick=function(){
-  try{ localStorage.setItem("mas_oapi",$("oapi").value.trim());
-       localStorage.setItem("mas_okey",$("okey").value.trim());
-       cmsg("Remembered in this browser. You will not be asked again on this computer.","ok") }
-  catch(e){ cmsg("This browser will not remember it — you will have to paste it each time.","bad") }};
+
+function signIn(quiet){
+  var key=$("okey").value.trim();
+  try{
+    localStorage.setItem("mas_oapi",$("oapi").value.trim());
+    localStorage.removeItem("mas_okey");
+    sessionStorage.removeItem("mas_okey");
+    if(key){ ($("okeep").checked?localStorage:sessionStorage).setItem("mas_okey",key) }
+  }catch(e){
+    if(!quiet)cmsg("This browser will not remember anything — you will have to paste the key each time.","bad");
+    return;
+  }
+  if(!quiet){
+    cmsg(key
+      ? ($("okeep").checked
+          ? "Signed in. This computer will remember your key until you sign out."
+          : "Signed in for this tab only. Closing it signs you out.")
+      : "Address saved. No key entered, so nothing can be changed yet.","ok");
+  }
+  resetIdle();
+}
+$("osave").onclick=function(){ signIn(false) };
+$("okeep").onchange=function(){ signIn(true);
+  cmsg($("okeep").checked
+    ? "Your key will now be kept on this computer until you sign out."
+    : "Your key will now be forgotten as soon as this tab closes.","inf") };
+
+function signOut(why){
+  try{ localStorage.removeItem("mas_okey"); sessionStorage.removeItem("mas_okey") }catch(e){}
+  $("okey").value="";
+  if(idleTimer)clearTimeout(idleTimer);
+  $("idlehint").textContent="";
+  cmsg(why||"<strong>Signed out.</strong> Your key is gone from this browser. "+
+       "Nothing can be changed until you enter it again.","ok");
+}
+$("osignout").onclick=function(){ signOut() };
+
+/* Left open on the shop counter, this page would sit there holding the key all
+   day. After 20 idle minutes it lets go of it by itself. Your edits are left
+   exactly as they are — only the key goes. */
+function resetIdle(){
+  if(idleTimer)clearTimeout(idleTimer);
+  if(!$("okey").value.trim()){ $("idlehint").textContent=""; return }
+  $("idlehint").textContent="Signs out by itself after "+IDLE_MINUTES+" quiet minutes.";
+  idleTimer=setTimeout(function(){
+    signOut("<strong>Signed out after "+IDLE_MINUTES+" quiet minutes.</strong> "+
+            "Your unsaved edits are still here — enter your key to publish them.");
+  }, IDLE_MINUTES*60*1000);
+}
+["click","keydown","input","touchstart"].forEach(function(ev){
+  document.addEventListener(ev,function(){
+    if(!idleTimer)return;          // only while signed in
+    resetIdle();
+  },{passive:true});
+});
+resetIdle();
 function omsg(t,k){ $("omsg").className="msg msg--"+(k||"inf"); $("omsg").textContent=t }
 function oapi(){ return $("oapi").value.trim().replace(/\/+$/,"") }
 

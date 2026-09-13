@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&family=Tajawal:wght@400;500;700&display=swap">
 <style>
 :root{
+  --tabh:3.55rem;   /* height of the bottom tab bar on phones and tablets */
   --paper:#fbfaf7;--card:#fff;--sunk:#f2efe9;
   --ink:#1d1a17;--ink2:#5f584f;--faint:#8d857a;
   --line:#e9e4da;--line2:#d6cec1;
@@ -33,10 +34,16 @@
   --lift:0 2px 6px rgba(0,0,0,.6),0 18px 40px -22px rgba(0,0,0,1);}
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:5.5rem}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;
+ line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:5.5rem}
+/* Nothing behind the page may scroll while a sheet is open, or the phone scrolls
+   the shop instead of the basket. */
+body.locked{overflow:hidden}
+@media(max-width:859px){body{padding-bottom:calc(6rem + var(--tabh) + env(safe-area-inset-bottom))}}
 body[dir="rtl"]{font-family:var(--arabic)}
 button,input,select{font:inherit;color:inherit}
-img{max-width:100%}
+img{max-width:100%;height:auto}
+html,body{max-width:100%;overflow-x:hidden}
 :focus-visible{outline:2px solid var(--saffron);outline-offset:2px;border-radius:4px}
 
 .top{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
@@ -88,7 +95,7 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
 .body{padding:.6rem .65rem .65rem;display:flex;flex-direction:column;gap:.3rem;flex:1}
 .nm{font-size:.86rem;font-weight:500;line-height:1.3;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .meta{font-size:.72rem;color:var(--faint);display:flex;gap:.35rem;flex-wrap:wrap}
-.foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:.4rem;padding-top:.35rem}
+.cardfoot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:.4rem;padding-top:.35rem}
 .pr{font-family:var(--display);font-weight:700;font-size:1.02rem;font-variant-numeric:tabular-nums}
 .pr small{font-weight:500;font-size:.66rem;color:var(--faint);margin-inline-end:.15rem}
 .add{border:none;background:var(--ink);color:var(--paper);border-radius:9px;width:30px;height:30px;font-size:1.05rem;cursor:pointer;display:grid;place-items:center}
@@ -102,21 +109,60 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
 .empty{grid-column:1/-1;text-align:center;padding:3.5rem 1rem;color:var(--faint)}
 .empty strong{display:block;font-family:var(--display);font-size:1.05rem;color:var(--ink);margin-bottom:.3rem}
 
-.bot{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--ink);color:var(--paper);transform:translateY(110%);transition:transform .26s cubic-bezier(.4,0,.2,1)}
+/* ── the bottom bar, and under it the tab bar on phones and tablets ── */
+.bot{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--ink);
+ color:var(--paper);transform:translateY(110%);transition:transform .26s cubic-bezier(.4,0,.2,1);
+ padding-bottom:env(safe-area-inset-bottom)}
+@media(max-width:859px){.bot{bottom:calc(var(--tabh) + env(safe-area-inset-bottom));padding-bottom:0}}
 .bot.on{transform:none}
 .bot__in{max-width:1240px;margin:0 auto;padding:.7rem 1rem;display:flex;align-items:center;gap:.8rem}
 .bot__n{background:var(--saffron);color:#1d1a17;border-radius:8px;padding:.2rem .5rem;font-family:var(--display);font-weight:700;font-size:.82rem;font-variant-numeric:tabular-nums}
 .bot__t{font-family:var(--display);font-weight:700;font-size:1.02rem;font-variant-numeric:tabular-nums}
 .bot__b{margin-inline-start:auto;background:var(--saffron);color:#1d1a17;border:none;border-radius:10px;padding:.55rem 1.05rem;font-family:var(--display);font-weight:700;font-size:.9rem;cursor:pointer}
 
+/* Above the sheets, not under them: on a phone you must always be able to move
+   from Contact to your basket without hunting for a close button. */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:65;display:none;
+ background:color-mix(in srgb,var(--paper) 94%,transparent);backdrop-filter:blur(14px);
+ border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+@media(max-width:859px){.tabs{display:flex}}
+.tab{flex:1 1 0;min-width:0;background:none;border:0;cursor:pointer;color:var(--faint);
+ display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+ padding:.42rem .1rem .5rem;font-size:.62rem;font-weight:500;letter-spacing:.01em;
+ position:relative;-webkit-tap-highlight-color:transparent}
+.tab svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;
+ stroke-linecap:round;stroke-linejoin:round}
+.tab span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.tab.on{color:var(--saffron)}
+@media(hover:hover){.tab:hover{color:var(--saffron)}}
+.tab__b{position:absolute;top:.22rem;inset-inline-start:calc(50% + .38rem);
+ background:var(--saffron);color:#1d1a17;border-radius:999px;min-width:1.02rem;height:1.02rem;
+ padding:0 .2rem;font-size:.6rem;font-weight:700;line-height:1.02rem;text-align:center;
+ font-variant-numeric:tabular-nums}
+.tab__b[hidden]{display:none}
+
 .sheet{position:fixed;inset:0;z-index:60;display:none}
 .sheet.on{display:block}
 .sheet__bg{position:absolute;inset:0;background:rgba(20,17,15,.5)}
-.sheet__p{position:absolute;left:0;right:0;bottom:0;max-height:88vh;background:var(--paper);border-radius:18px 18px 0 0;display:flex;flex-direction:column;box-shadow:var(--lift)}
-@media(min-width:720px){.sheet__p{left:auto;right:0;top:0;bottom:0;width:410px;max-height:none;border-radius:0}}
+/* dvh, not vh: on a phone vh counts the space UNDER the browser's own toolbar,
+   so an 88vh panel is taller than the screen and the bottom of it — the Order
+   button — sits where no finger can reach it. */
+.sheet__p{position:absolute;left:0;right:0;bottom:0;max-height:88vh;max-height:88dvh;
+ background:var(--paper);border-radius:18px 18px 0 0;display:flex;flex-direction:column;
+ box-shadow:var(--lift);overscroll-behavior:contain}
+/* The panel stops where the tab bar starts, so neither covers the other. */
+@media(max-width:859px){.sheet__p{bottom:calc(var(--tabh) + env(safe-area-inset-bottom))}}
+@media(min-width:720px) and (max-width:859px){.sheet__p{left:auto;right:0;width:min(410px,100%);
+ border-radius:18px 0 0 0}}
+@media(min-width:860px){.sheet__p{left:auto;right:0;top:0;bottom:0;width:410px;
+ max-height:none;height:100%;border-radius:0}}
 .sheet__h{padding:1rem 1.1rem .7rem;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
 .sheet__h h2{font-family:var(--display);font-weight:700;font-size:1.1rem;margin:0}
-.sheet__l{overflow-y:auto;padding:.6rem 1.1rem;flex:1}
+/* Both halves may scroll. Whichever one is too tall for the screen gets its own
+   scrollbar, so nothing in the basket can ever end up unreachable. min-height:0
+   is what actually lets a flex child shrink far enough to scroll at all. */
+.sheet__l{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+ padding:.6rem 1.1rem;flex:1 1 auto;min-height:0}
 .li{display:flex;gap:.7rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--line)}
 .li:last-child{border-bottom:none}
 .lt{width:42px;height:42px;border-radius:9px;flex:none;display:grid;place-items:center;overflow:hidden;background:var(--sunk)}
@@ -125,10 +171,36 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
 .ln{flex:1;min-width:0}
 .ln b{display:block;font-weight:500;font-size:.84rem;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ln span{font-size:.74rem;color:var(--faint);font-variant-numeric:tabular-nums}
-.sheet__f{border-top:1px solid var(--line);padding:.9rem 1.1rem 1.1rem;display:flex;flex-direction:column;gap:.5rem}
+.sheet__f{border-top:1px solid var(--line);padding:.9rem 1.1rem;display:flex;
+ flex-direction:column;gap:.5rem;flex:0 1 auto;min-height:0;max-height:64dvh;
+ overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+ background:var(--paper);
+ padding-bottom:calc(1.1rem + env(safe-area-inset-bottom))}
+/* On a short screen the name and area fields alone can fill the panel, leaving
+   the one button that matters below the fold. Pinning it means the way to order
+   is never more than where your thumb already is. */
+.sheet__f .wa{position:sticky;bottom:0;z-index:2;box-shadow:0 -10px 14px -10px var(--paper)}
+.sheet__l{min-height:4.2rem}
 .fld{display:flex;flex-direction:column;gap:.2rem}
 .fld span{font-size:.75rem;color:var(--faint);font-weight:500}
 .fld input,.fld select,.fld textarea{border:1px solid var(--line2);background:var(--card);border-radius:9px;padding:.45rem .6rem;font-size:.88rem;width:100%;font-family:inherit}
+/* the Contact and My details panels */
+.info{display:flex;flex-direction:column;gap:.1rem;padding:.2rem 0 1rem}
+.info h4{font-family:var(--display);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;
+ color:var(--faint);margin:1rem 0 .35rem;font-weight:600}
+.info h4:first-child{margin-top:.2rem}
+.irow{display:flex;align-items:center;gap:.7rem;padding:.62rem 0;border-bottom:1px solid var(--line);
+ text-decoration:none;color:inherit;font-size:.9rem}
+.irow:last-child{border-bottom:none}
+.irow svg{width:19px;height:19px;flex:none;fill:none;stroke:var(--faint);stroke-width:1.7;
+ stroke-linecap:round;stroke-linejoin:round}
+.irow b{font-weight:500;display:block}
+.irow small{display:block;color:var(--faint);font-size:.74rem;margin-top:1px}
+.irow--go b{color:var(--saffron)}
+.info .wa{margin-top:.9rem}
+.ibtn{border:1px solid var(--line2);background:var(--card);border-radius:10px;padding:.6rem .9rem;
+ font-size:.86rem;font-weight:500;cursor:pointer;width:100%;margin-top:.9rem}
+.ibtn:hover{border-color:var(--saffron);color:var(--saffron)}
 .rowb{display:flex;justify-content:space-between;font-size:.87rem}
 .rowb--t{font-family:var(--display);font-weight:700;font-size:1.15rem;font-variant-numeric:tabular-nums;padding-top:.4rem;border-top:1px solid var(--line)}
 .wa{background:var(--wa);color:#fff;border:none;border-radius:11px;padding:.8rem;font-family:var(--display);font-weight:700;font-size:.98rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem;margin-top:.2rem;text-decoration:none}
@@ -289,6 +361,34 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
   <button class="bot__b" id="open">View basket</button>
 </div></div>
 
+<nav class="tabs" id="tabs" aria-label="Shop">
+  <button class="tab" id="t_home" type="button">
+    <svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg>
+    <span id="t_home_l">Home</span></button>
+  <button class="tab" id="t_search" type="button">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <span id="t_search_l">Search</span></button>
+  <button class="tab" id="t_cart" type="button">
+    <svg viewBox="0 0 24 24"><path d="M6 7h13l-1.3 8.5a2 2 0 0 1-2 1.7H9.3a2 2 0 0 1-2-1.7L5.6 4.8A1 1 0 0 0 4.6 4H3"/><circle cx="10" cy="20" r="1.1"/><circle cx="17" cy="20" r="1.1"/></svg>
+    <span class="tab__b" id="t_cart_b" hidden>0</span>
+    <span id="t_cart_l">Basket</span></button>
+  <button class="tab" id="t_me" type="button">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.7"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/></svg>
+    <span id="t_me_l">My details</span></button>
+  <button class="tab" id="t_contact" type="button">
+    <svg viewBox="0 0 24 24"><path d="M5.2 4.5h3l1.6 4-2 1.4a12 12 0 0 0 6.3 6.3l1.4-2 4 1.6v3a1.4 1.4 0 0 1-1.5 1.4A16.2 16.2 0 0 1 3.8 6a1.4 1.4 0 0 1 1.4-1.5z"/></svg>
+    <span id="t_contact_l">Contact</span></button>
+</nav>
+
+<!-- One panel, reused for "My details" and "Contact". -->
+<div class="sheet" id="isheet">
+  <div class="sheet__bg" id="ibg"></div>
+  <div class="sheet__p">
+    <div class="sheet__h"><h2 id="i_title"></h2><button class="ib" id="iclose" aria-label="Close">✕</button></div>
+    <div class="sheet__l"><div class="info" id="i_body"></div></div>
+  </div>
+</div>
+
 <div class="sheet" id="sheet">
   <div class="sheet__bg" id="bg"></div>
   <div class="sheet__p">
@@ -408,7 +508,7 @@ function drawGrid(){
     return '<article class="card">'+tile(p)+'<div class="body">'+
       '<p class="nm">'+esc(p.name)+'</p>'+
       '<div class="meta">'+(p.origin?'<span>'+esc(p.origin)+'</span>':"")+(p.weight?'<span>· '+esc(p.weight)+'</span>':"")+'</div>'+
-      '<div class="foot"><span class="pr"><small>'+(lang==="ar"?"د.إ":"AED")+'</small>'+p.price.toFixed(2)+
+      '<div class="cardfoot"><span class="pr"><small>'+(lang==="ar"?"د.إ":"AED")+'</small>'+p.price.toFixed(2)+
         (onOffer(p)?'<span class="was">'+p.was.toFixed(2)+'</span>':"")+'</span>'+
       (p.stock===0?'<button class="add" disabled>+</button>'
         :q?'<span class="step"><button data-m="'+p.sku+'">−</button><span class="q">'+q+'</span><button data-a="'+p.sku+'">+</button></span>'
@@ -436,6 +536,8 @@ function drawCart(){
   var L=lines(),n=L.reduce(function(s,l){return s+l.q},0),sub=subtotal();
   $("bot").className="bot"+(n>0?" on":"");
   $("bn2").textContent=n;$("bt").textContent=money(sub);
+  $("t_cart_b").textContent=n>99?"99+":n;
+  $("t_cart_b").hidden=!n;
   $("lines").innerHTML=L.length?L.map(function(l){
     return '<div class="li">'+tile(l.p,1)+'<span class="ln"><b>'+esc(l.p.name)+'</b>'+
       '<span>'+l.q+' × '+money(l.p.price)+'</span></span>'+
@@ -494,6 +596,15 @@ function applyLang(){
   setDelBar(inRange===true?"ok":inRange===false?"no":"", 
     inRange===null?delText("note"):$("delbar_txt").textContent);
   $("delcheck").textContent=lang==="ar"?"تحقق من عنواني":"Check my address";
+  $("t_home_l").textContent=lang==="ar"?"الرئيسية":"Home";
+  $("t_search_l").textContent=lang==="ar"?"بحث":"Search";
+  $("t_cart_l").textContent=lang==="ar"?"السلة":"Basket";
+  $("t_me_l").textContent=lang==="ar"?"بياناتي":"My details";
+  $("t_contact_l").textContent=lang==="ar"?"اتصل بنا":"Contact";
+  if($("isheet").className.indexOf("on")>-1){
+    // a panel open while the language flips must redraw in the new language
+    if($("i_title").dataset.kind==="me")drawMe();else drawContact();
+  }
   drawChips();drawGrid();drawCart();drawHero();drawFooter();drawRangeHint();
 }
 
@@ -724,10 +835,163 @@ $("theme").onclick=function(){
   var cur=document.documentElement.getAttribute("data-theme");
   var dark=cur?cur==="dark":window.matchMedia("(prefers-color-scheme:dark)").matches;
   document.documentElement.setAttribute("data-theme",dark?"light":"dark")};
-$("open").onclick=function(){$("sheet").className="sheet on"};
+/* While a panel is open the page behind it must not scroll, or a phone scrolls
+   the shop under your finger instead of the basket in front of you. */
+function setTab(id){
+  ["t_home","t_search","t_cart","t_me","t_contact"].forEach(function(x){
+    $(x).className="tab"+(x===id?" on":"");
+    $(x).setAttribute("aria-current",x===id?"page":"false");
+  });
+}
+function openSheet(id,tab){
+  closeSheet(true);
+  $(id).className="sheet on";
+  document.body.classList.add("locked");
+  if(tab)setTab(tab);
+}
+function closeSheet(keepTab){
+  $("sheet").className="sheet";
+  $("isheet").className="sheet";
+  document.body.classList.remove("locked");
+  if(!keepTab)setTab("t_home");
+}
+function sheetOpen(){
+  return $("sheet").className.indexOf("on")>-1 || $("isheet").className.indexOf("on")>-1;
+}
+$("open").onclick=function(){openSheet("sheet","t_cart")};
 $("delcheck").onclick=checkDistance;
-$("close").onclick=function(){$("sheet").className="sheet"};
-$("bg").onclick=function(){$("sheet").className="sheet"};
+$("close").onclick=closeSheet;
+$("bg").onclick=closeSheet;
+$("iclose").onclick=closeSheet;
+$("ibg").onclick=closeSheet;
+document.addEventListener("keydown",function(e){ if(e.key==="Escape")closeSheet() });
+
+/* ── the bottom tab bar ────────────────────────────────────────────────────
+   Five things a customer actually does on a phone. It only exists below the
+   tablet width; on a desktop the header already has all of it. */
+$("t_home").onclick=function(){
+  cat="";$("q").value="";drawChips();drawGrid();closeSheet();
+  window.scrollTo({top:0,behavior:"smooth"});
+};
+$("t_search").onclick=function(){
+  closeSheet(true);setTab("t_search");
+  window.scrollTo({top:0,behavior:"smooth"});
+  setTimeout(function(){ $("q").focus() },260);
+};
+$("t_cart").onclick=function(){ openSheet("sheet","t_cart") };
+$("t_me").onclick=function(){ drawMe(); openSheet("isheet","t_me") };
+$("t_contact").onclick=function(){ drawContact(); openSheet("isheet","t_contact") };
+
+function iconSvg(d,extra){
+  return '<svg viewBox="0 0 24 24">'+(extra||"")+'<path d="'+d+'"/></svg>';
+}
+var I={
+  pin:"M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z",
+  clock:"M12 7v5l3 2",
+  phone:"M5.2 4.5h3l1.6 4-2 1.4a12 12 0 0 0 6.3 6.3l1.4-2 4 1.6v3a1.4 1.4 0 0 1-1.5 1.4A16.2 16.2 0 0 1 3.8 6a1.4 1.4 0 0 1 1.4-1.5z",
+  mail:"M3.5 6.5h17v11h-17zM3.5 7l8.5 6 8.5-6",
+  chat:"M12 3.6c4.7 0 8.4 3.2 8.4 7.2s-3.7 7.2-8.4 7.2a9.9 9.9 0 0 1-2.6-.35L4.8 19.6l.9-3.4A6.9 6.9 0 0 1 3.6 10.8c0-4 3.7-7.2 8.4-7.2z",
+  user:"M4.8 20a7.2 7.2 0 0 1 14.4 0",
+  truck:"M3 7h11v9H3zM14 10h3.5l2.5 3v3h-6M6.5 19a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8zM17 19a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8z"
+};
+
+/* Everything a customer needs to reach the shop, in one place, one tap away. */
+function drawContact(){
+  $("i_title").textContent=lang==="ar"?"تواصل معنا":"Contact us";
+  $("i_title").dataset.kind="contact";
+  var c=SHOP.contact||{}, loc=shopLoc(), open=hoursOpenNow(), num=waNumber(), h="";
+  var area=lang==="ar"?(loc.areaNameAr||loc.areaName||""):(loc.areaName||"");
+
+  h+='<h4>'+(lang==="ar"?"المتجر":"The shop")+'</h4>';
+  if(hoursLabel()){
+    var state=open===null?"":(open?(lang==="ar"?"مفتوح الآن":"Open now")
+                                 :(lang==="ar"?"مغلق الآن":"Closed now"));
+    h+='<div class="irow">'+iconSvg(I.clock,'<circle cx="12" cy="12" r="8.4"/>')+
+       '<span><b>'+esc(hoursLabel())+'</b>'+(state?'<small>'+esc(state)+'</small>':'')+'</span></div>';
+  }
+  if(area||loc.mapUrl){
+    h+='<a class="irow irow--go"'+(loc.mapUrl?' href="'+esc(loc.mapUrl)+'" target="_blank" rel="noopener"':'')+'>'+
+       iconSvg(I.pin,'<circle cx="12" cy="10" r="2.6"/>')+
+       '<span><b>'+esc(area||(lang==="ar"?"موقعنا":"Our location"))+'</b>'+
+       (loc.mapUrl?'<small>'+(lang==="ar"?"افتح في خرائط جوجل":"Open in Google Maps")+'</small>':'')+
+       '</span></a>';
+  }
+  h+='<div class="irow">'+iconSvg(I.truck)+'<span><b>'+esc(delText("note"))+'</b>'+
+     '<small>'+esc(delText("outsideNote"))+'</small></span></div>';
+
+  h+='<h4>'+(lang==="ar"?"اتصل بنا":"Reach us")+'</h4>';
+  if(c.phone){
+    h+='<a class="irow irow--go" href="'+(c.phoneDial?"tel:+"+esc(c.phoneDial):"#")+'">'+
+       iconSvg(I.phone)+'<span><b>'+esc(c.phone)+'</b><small>'+
+       (lang==="ar"?"اتصل بالمتجر":"Call the shop")+'</small></span></a>';
+  }
+  if(c.email){
+    h+='<a class="irow irow--go" href="mailto:'+esc(c.email)+'">'+iconSvg(I.mail)+
+       '<span><b>'+esc(c.email)+'</b><small>'+(lang==="ar"?"راسلنا":"Email us")+'</small></span></a>';
+  }
+  var L=SHOP.links||{};
+  [["googleReview",lang==="ar"?"قيّمنا على جوجل":"Rate us on Google"],
+   ["instagram","Instagram"],["tiktok","TikTok"],
+   ["whatsappCommunity",lang==="ar"?"قناة واتساب":"WhatsApp channel"]
+  ].forEach(function(x){
+    if(L[x[0]])h+='<a class="irow irow--go" href="'+esc(L[x[0]])+'" target="_blank" rel="noopener">'+
+      iconSvg(I.chat)+'<span><b>'+esc(x[1])+'</b></span></a>';
+  });
+  if(num){
+    h+='<a class="wa" href="https://wa.me/'+num+'" target="_blank" rel="noopener">'+
+       (lang==="ar"?"راسلنا على واتساب":"Message us on WhatsApp")+'</a>';
+  }
+  $("i_body").innerHTML=h;
+}
+
+/* There are no accounts in this shop — nothing to log in to, nothing stored on
+   any server. This panel is honest about that: it shows what THIS phone has
+   remembered, and lets you wipe it. */
+function drawMe(){
+  $("i_title").textContent=lang==="ar"?"بياناتي":"My details";
+  $("i_title").dataset.kind="me";
+  var n=$("c_name").value.trim(), a=$("c_area").value.trim();
+  var ph=$("c_phone")?$("c_phone").value.trim():"";
+  var cnt=lines().reduce(function(x,l){return x+l.q},0);
+  var h="";
+
+  h+='<h4>'+(lang==="ar"?"محفوظ على هذا الجهاز":"Saved on this phone")+'</h4>';
+  if(n||a||ph){
+    if(n)h+='<div class="irow">'+iconSvg(I.user,'<circle cx="12" cy="8.5" r="3.7"/>')+
+      '<span><b>'+esc(n)+'</b><small>'+(lang==="ar"?"الاسم":"Name")+'</small></span></div>';
+    if(a)h+='<div class="irow">'+iconSvg(I.pin,'<circle cx="12" cy="10" r="2.6"/>')+
+      '<span><b>'+esc(a)+'</b><small>'+(lang==="ar"?"عنوان التوصيل":"Delivery area")+'</small></span></div>';
+    if(ph)h+='<div class="irow">'+iconSvg(I.phone)+
+      '<span><b>'+esc(ph)+'</b><small>'+(lang==="ar"?"الهاتف":"Phone")+'</small></span></div>';
+  } else {
+    h+='<div class="irow"><span><b>'+(lang==="ar"?"لا شيء محفوظ بعد":"Nothing saved yet")+'</b>'+
+       '<small>'+(lang==="ar"?"املأ اسمك وعنوانك عند الطلب وسيتذكرهما هذا الجهاز."
+                            :"Fill in your name and area when you order and this phone will remember them.")+
+       '</small></span></div>';
+  }
+
+  h+='<h4>'+(lang==="ar"?"سلتك":"Your basket")+'</h4>';
+  h+='<div class="irow"><span><b>'+
+     (cnt?cnt+(lang==="ar"?" قطعة · ":" item"+(cnt===1?"":"s")+" · ")+money(subtotal())
+         :(lang==="ar"?"فارغة":"Empty"))+'</b></span></div>';
+
+  h+='<h4>'+(lang==="ar"?"خصوصيتك":"Your privacy")+'</h4>';
+  h+='<div class="irow"><span><b>'+
+     (lang==="ar"?"لا يوجد حساب ولا كلمة مرور":"No account, no password")+'</b><small>'+
+     (lang==="ar"?"لا نحتفظ بشيء عنك حتى ترسل طلباً. ما تراه هنا محفوظ في هذا المتصفح وحده."
+                :"We keep nothing about you until you send an order. What you see here is stored in this browser alone.")+
+     '</small></span></div>';
+  h+='<button class="ibtn" id="i_forget" type="button">'+
+     (lang==="ar"?"امسح بياناتي من هذا الجهاز":"Forget my details on this phone")+'</button>';
+
+  $("i_body").innerHTML=h;
+  $("i_forget").onclick=function(){
+    $("c_name").value="";$("c_area").value="";
+    if($("c_phone"))$("c_phone").value="";
+    try{ localStorage.removeItem("mas_who") }catch(e){}
+    save();drawCart();drawMe();
+  };
+}
 ["c_name","c_phone","c_area","c_note"].forEach(function(id){$(id).oninput=function(){save();$("send").href=waLink()}});
 /* Record the order before WhatsApp opens, so you get a sales history and a
    customer list. If the recorder is unreachable the order still goes through —
@@ -755,7 +1019,7 @@ $("send").onclick=function(e){
   if(!waNumber()){e.preventDefault();return}
   recordOrder();
   // give the basket a moment to clear visually, but never block the WhatsApp hand-off
-  setTimeout(function(){cart={};save();drawGrid();drawCart();$("sheet").className="sheet"},700);
+  setTimeout(function(){cart={};save();drawGrid();drawCart();closeSheet()},700);
 };
 
 var API=String(window.MASAARNA_API||"").replace(/\/+$/,"");
@@ -789,7 +1053,7 @@ loadCatalog();
    never more than once a minute. */
 document.addEventListener("visibilitychange",function(){
   if(document.hidden)return;
-  if($("sheet").className.indexOf("on")>-1)return;
+  if(sheetOpen())return;
   if(Date.now()-lastLoad<60000)return;
   loadCatalog();
 });
