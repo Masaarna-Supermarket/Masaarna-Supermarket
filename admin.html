@@ -68,7 +68,17 @@ textarea.inp{width:100%;font-family:ui-monospace,monospace;font-size:.78rem;min-
 .msg--inf{background:var(--sunk);color:var(--faint)}
 
 .tw{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:auto;max-height:65vh}
-table{border-collapse:collapse;width:100%;font-size:.83rem}
+/* Fixed layout with shares of the width, so ten columns fit the screen instead
+   of the widest cell pushing Stock and Photo link off the right-hand edge.
+   Tick "Wide columns" and it goes back to sizing by content. */
+table{border-collapse:collapse;width:100%;font-size:.83rem;table-layout:fixed}
+.tw--wide table{table-layout:auto}
+#tbl col.c-on{width:5.4rem}   #tbl col.c-ph{width:3.6rem}
+#tbl col.c-nm{width:22%}      #tbl col.c-ar{width:19%}
+#tbl col.c-bc{width:9.5rem}   #tbl col.c-ct{width:14%}
+#tbl col.c-pr{width:5.6rem}   #tbl col.c-was{width:5.6rem}
+#tbl col.c-st{width:5rem}     #tbl col.c-img{width:16%}
+.tw--wide col{width:auto!important}
 th,td{text-align:left;padding:.35rem .5rem;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
 thead th{position:sticky;top:0;background:var(--sunk);font-size:.66rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600;z-index:2;cursor:pointer;user-select:none}
 thead th:hover{color:var(--saffron)}
@@ -78,8 +88,16 @@ td .e{border:1px solid transparent;background:none;border-radius:5px;padding:.15
 td .e:hover{border-color:var(--line2)}
 td .e:focus{border-color:var(--saffron);background:var(--card)}
 .e--n{width:4.6rem;text-align:right;font-variant-numeric:tabular-nums}
-.e--nm{min-width:17rem}
-.e--img{min-width:13rem;font-size:.74rem;font-family:ui-monospace,monospace}
+.e--nm{min-width:0;width:100%}
+.e--img{min-width:0;width:100%;font-size:.72rem;font-family:ui-monospace,monospace}
+.tw--wide .e--nm{min-width:17rem}
+.tw--wide .e--img{min-width:13rem}
+.e--n{width:100%}
+.tw--wide .e--n{width:4.6rem}
+.sep{display:flex;align-items:center;gap:.6rem;margin:.65rem 0 .55rem;
+ font-size:.7rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+.sep::before,.sep::after{content:"";height:1px;background:var(--line);flex:1}
+.sep span{flex:none}
 .th{width:34px;height:34px;border-radius:6px;object-fit:contain;background:var(--sunk);display:block}
 .noth{width:34px;height:34px;border-radius:6px;background:var(--berry-soft);color:var(--berry);display:grid;place-items:center;font-size:.6rem;font-weight:700}
 /* A <label> is inline, and width and height do not apply to inline boxes — so
@@ -235,8 +253,8 @@ summary:hover{color:var(--saffron)}
 
   <div class="stats" id="stats"></div>
 
-  <div class="tools">
-    <h3>Filter</h3>
+  <div class="tools" id="findpanel">
+    <h3>Find products, then change them</h3>
     <div class="row">
       <input class="inp inp--w" id="q" placeholder="Search name, barcode or category">
       <select class="inp" id="fcat"></select>
@@ -257,18 +275,15 @@ summary:hover{color:var(--saffron)}
       </select>
       <span class="msg msg--inf" id="shown"></span>
     </div>
-  </div>
 
-  <div class="tools">
-    <h3>Do this to everything currently filtered</h3>
+    <div class="sep"><span id="sep_l">then do this to all of them</span></div>
+
     <div class="row">
       <button class="btn" data-bulk="show">Show all</button>
       <button class="btn" data-bulk="hide">Hide all</button>
       <button class="btn btn--bad" data-bulk="hidenoimg">Hide the ones with no photo</button>
       <button class="btn" data-bulk="shownimg">Show the ones that have a photo</button>
       <button class="btn" data-bulk="clearoffer">Clear all offers</button>
-    </div>
-    <div class="row">
       <select class="inp" id="bact">
         <option value="price">Set price to</option>
         <option value="pricepc">Change price by %</option>
@@ -283,6 +298,29 @@ summary:hover{color:var(--saffron)}
     </div>
   </div>
 
+  <div class="row" style="margin:.1rem 0 .5rem">
+    <label class="chk"><input type="checkbox" id="wide"> Wide columns (scroll sideways, full links)</label>
+  </div>
+
+  <div class="tw" id="tw">
+    <colgroup id="tbl">
+      <col class="c-on"><col class="c-ph"><col class="c-nm"><col class="c-ar"><col class="c-bc">
+      <col class="c-ct"><col class="c-pr"><col class="c-was"><col class="c-st"><col class="c-img">
+    </colgroup>
+    <table>
+      <thead><tr>
+        <th data-s="visible" id="h_on">On</th><th id="h_photo">Photo</th><th data-s="name" id="h_name">Product</th>
+        <th data-s="nameAr" id="h_namear">Arabic name</th>
+        <th data-s="sku" id="h_sku">Barcode</th><th data-s="cat" id="h_cat">Category</th>
+        <th data-s="price" id="h_price">Price</th><th data-s="was" id="h_was">Was</th>
+        <th data-s="stock" id="h_stock">Stock</th><th id="h_img">Photo link</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p class="hint" id="cap"></p>
+
+  
   <div class="tools">
     <h3>Photos</h3>
     <p class="hint" style="margin:-.2rem 0 .55rem">
@@ -313,24 +351,16 @@ summary:hover{color:var(--saffron)}
     </details>
   </div>
 
-  <div class="tw">
-    <table>
-      <thead><tr>
-        <th data-s="visible" id="h_on">On</th><th id="h_photo">Photo</th><th data-s="name" id="h_name">Product</th>
-        <th data-s="nameAr" id="h_namear">Arabic name</th>
-        <th data-s="sku" id="h_sku">Barcode</th><th data-s="cat" id="h_cat">Category</th>
-        <th data-s="price" id="h_price">Price</th><th data-s="was" id="h_was">Was (offer)</th>
-        <th data-s="stock" id="h_stock">Stock</th><th id="h_img">Image link</th>
-      </tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </div>
-  <p class="hint" id="cap"></p>
-
-  <div class="tools" style="margin-top:1rem">
+<div class="tools" style="margin-top:1rem">
     <h3>Orders</h3>
     <p class="hint" style="margin:-.2rem 0 .55rem">
       Uses the same address and key as above.
+    </p>
+    <p class="hint" style="margin:-.2rem 0 .55rem">
+      An order is written down the moment a customer presses the WhatsApp button — before
+      they have sent you anything. Many never send. So <strong>nothing is taken off your
+      stock until you say the order was delivered</strong>, and then only once, however many
+      times you change your mind about its status.
     </p>
     <div class="row">
       <button class="btn btn--go" id="oload">Load orders</button>
@@ -340,7 +370,7 @@ summary:hover{color:var(--saffron)}
     <div class="tw" style="max-height:40vh;margin-top:.6rem" id="owrap" hidden>
       <table>
         <thead><tr><th>Order</th><th>When</th><th>Customer</th><th>Phone</th><th>Area</th>
-          <th>Items</th><th>Total</th><th>Status</th></tr></thead>
+          <th>Items</th><th>Total</th><th>Status</th><th>Stock</th></tr></thead>
         <tbody id="orows"></tbody>
       </table>
     </div>
@@ -405,10 +435,16 @@ var AR={
   "Add to stock":"أضف للمخزون","Move to category":"انقل إلى قسم","Put on offer, % off":"ضع عرضاً، خصم %",
   "Apply":"تطبيق","Photos":"الصور","Remember key":"احفظ المفتاح",
   "Orders":"الطلبات","Load orders":"حمّل الطلبات","Download orders for Excel":"نزّل الطلبات لإكسل",
+  "New":"جديد","Confirmed on WhatsApp":"مؤكد على واتساب","Being packed":"قيد التجهيز",
+  "Out for delivery":"في الطريق","Delivered":"تم التوصيل","Cancelled":"ملغي",
+  "Take off stock":"اخصم من المخزون","taken off":"تم الخصم","Stock":"المخزون",
+  "Find products, then change them":"ابحث عن المنتجات ثم غيّرها",
+  "then do this to all of them":"ثم طبّق هذا عليها جميعاً",
+  "Wide columns (scroll sideways, full links)":"أعمدة عريضة (تمرير جانبي، روابط كاملة)",
   "Undo a publish":"تراجع عن نشر","Show past publishes":"اعرض عمليات النشر السابقة",
   "Download a backup of what is live":"نزّل نسخة مما هو منشور",
   "On":"الحالة","Photo":"صورة","Product":"المنتج","Arabic name":"الاسم بالعربي",
-  "Barcode":"الباركود","Category":"القسم","Price":"السعر","Was (offer)":"قبل العرض",
+  "Barcode":"الباركود","Category":"القسم","Price":"السعر","Was":"قبل العرض","Photo link":"رابط الصورة",
   "Stock":"المخزون","Image link":"رابط الصورة",
   "Order":"الطلب","When":"متى","Customer":"العميل","Phone":"الهاتف","Area":"المنطقة",
   "Items":"الأصناف","Total":"الإجمالي","Status":"الحالة",
@@ -1289,7 +1325,102 @@ function resetIdle(){
   },{passive:true});
 });
 resetIdle();
-function omsg(t,k){ $("omsg").className="msg msg--"+(k||"inf"); $("omsg").textContent=t }
+function omsg(t,k){ $("omsg").className="msg msg--"+(k||"inf"); $("omsg").innerHTML=t }
+
+/* ── order statuses and stock ────────────────────────
+   The whole point of a status is that YOU move it, as the real order moves.
+   Stock follows the one status that means the goods actually left the shop. */
+var ORDERS=[];
+var STATUSES=[
+  ["new",       "New"],
+  ["confirmed", "Confirmed on WhatsApp"],
+  ["packing",   "Being packed"],
+  ["delivering","Out for delivery"],
+  ["done",      "Delivered"],
+  ["cancelled", "Cancelled"]
+];
+var STPILL={new:"p-warn",confirmed:"p-ok",packing:"p-ok",delivering:"p-ok",done:"p-mut",cancelled:"p-bad"};
+function statusSelect(cur){
+  return '<select class="inp ostat" data-stat style="font-size:.76rem;padding:.2rem .3rem">'+
+    STATUSES.map(function(x){
+      return '<option value="'+x[0]+'"'+(x[0]===cur?" selected":"")+'>'+esc(x[1])+'</option>';
+    }).join("")+'</select>';
+}
+function stockCell(x){
+  if(x.stock_applied)return '<span class="pill p-mut">taken off</span>';
+  if(x.status==="cancelled")return '<span style="color:var(--faint);font-size:.74rem">—</span>';
+  return '<button class="btn" data-stock style="font-size:.74rem;padding:.25rem .5rem">Take off stock</button>';
+}
+function wireOrders(){
+  Array.prototype.forEach.call($("orows").querySelectorAll("[data-stat]"),function(sel){
+    sel.onchange=function(){
+      var ref=sel.closest("tr").dataset.ref;
+      setStatus(ref,sel.value);
+    };
+  });
+  Array.prototype.forEach.call($("orows").querySelectorAll("[data-stock]"),function(b){
+    b.onclick=function(){ takeOffStock(b.closest("tr").dataset.ref) };
+  });
+}
+function setStatus(ref,status){
+  omsg("Saving…","inf");
+  fetch(oapi()+"/orders/"+encodeURIComponent(ref),{method:"POST",
+      headers:{"Content-Type":"application/json","X-Admin-Key":akey()},
+      body:JSON.stringify({status:status})})
+   .then(function(r){ return r.json().then(function(j){ if(!r.ok)throw new Error(j.error||r.status); return j }) })
+   .then(function(){
+     var x=ORDERS.filter(function(y){return y.ref===ref})[0]; if(x)x.status=status;
+     omsg(ref+" is now <strong>"+esc(status)+"</strong>."+
+       (status==="done"&&x&&!x.stock_applied
+         ? " Press <strong>Take off stock</strong> when you want the items removed from your counts."
+         : ""),"ok");
+     if(x){
+       var tr=$("orows").querySelector('tr[data-ref="'+ref.replace(/"/g,'')+'"]');
+       if(tr)tr.cells[8].innerHTML=stockCell(x),wireOrders();
+     }
+   })
+   .catch(function(e){ omsg(e.message,"bad") });
+}
+/* Subtracting stock changes the CATALOG, so it lands in the manager like any
+   other edit and is yours to publish or throw away. The order is marked on the
+   server first, so a second press can never subtract the same order twice. */
+function takeOffStock(ref){
+  if(!DOC)return omsg("Open your products first.","bad");
+  var x=ORDERS.filter(function(y){return y.ref===ref})[0];
+  if(!x)return;
+  var lines=[]; try{ lines=JSON.parse(x.items_json||"[]") }catch(e){ lines=[] }
+  if(!lines.length)return omsg("That order has no lines recorded.","bad");
+  if(!confirm("Take "+lines.reduce(function(s,l){return s+l.qty},0)+
+              " item(s) off your stock counts for "+ref+"?\n\n"+
+              "This changes your products here. Press Publish to shop afterwards to make it live."))return;
+
+  omsg("Marking…","inf");
+  fetch(oapi()+"/orders/"+encodeURIComponent(ref)+"/stock",{method:"POST",
+      headers:{"X-Admin-Key":akey()}})
+   .then(function(r){ return r.json().then(function(j){ if(!r.ok)throw new Error(j.error||r.status); return j }) })
+   .then(function(j){
+     if(!j.applied){ x.stock_applied=1; loadOrdersRow(ref);
+       return omsg("Already taken off for "+ref+" — nothing changed.","inf") }
+     var hit=0, miss=[];
+     lines.forEach(function(l){
+       var prod=P.filter(function(p){return String(p.sku)===String(l.sku)})[0];
+       if(!prod){ miss.push(l.name||l.sku); return }
+       prod.stock=Math.max(0,(parseInt(prod.stock,10)||0)-(parseInt(l.qty,10)||0));
+       forgetHay(prod); hit++;
+     });
+     x.stock_applied=1; loadOrdersRow(ref);
+     setDirty(true); draw();
+     omsg("<strong>"+hit+" product(s) reduced.</strong>"+
+          (miss.length?" Not found in your list: "+esc(miss.join(", "))+".":"")+
+          " Press <strong>Publish to shop</strong> to make it live.","ok");
+   })
+   .catch(function(e){ omsg(e.message,"bad") });
+}
+function loadOrdersRow(ref){
+  var x=ORDERS.filter(function(y){return y.ref===ref})[0];
+  var tr=$("orows").querySelector('tr[data-ref="'+String(ref).replace(/"/g,'')+'"]');
+  if(x&&tr){ tr.cells[8].innerHTML=stockCell(x); wireOrders() }
+}
 function oapi(){ return $("oapi").value.trim().replace(/\/+$/,"") }
 
 $("oload").onclick=function(){
@@ -1301,15 +1432,17 @@ $("oload").onclick=function(){
    .then(function(d){
      var o=d.orders||[];
      $("owrap").hidden=false;
+     ORDERS=o;
      $("orows").innerHTML=o.length?o.map(function(x){
-       var st={new:"p-warn",confirmed:"p-ok",packing:"p-ok",delivering:"p-ok",done:"p-mut",cancelled:"p-bad"}[x.status]||"p-mut";
-       return "<tr><td style='font-size:.76rem'>"+esc(x.ref)+"</td>"+
+       return "<tr data-ref='"+esc(x.ref)+"'><td style='font-size:.76rem'>"+esc(x.ref)+"</td>"+
          "<td style='font-size:.76rem'>"+esc(String(x.created_at||"").slice(0,16))+"</td>"+
          "<td>"+esc(x.customer_name||"")+"</td><td>"+esc(x.customer_phone||"")+"</td>"+
          "<td>"+esc(x.area||"")+"</td><td class='e--n'>"+(x.item_count||0)+"</td>"+
          "<td class='e--n'>AED "+Number(x.total||0).toFixed(2)+"</td>"+
-         "<td><span class='pill "+st+"'>"+esc(x.status||"new")+"</span></td></tr>";
-     }).join(""):"<tr><td colspan='8' style='text-align:center;color:var(--faint);padding:1.5rem'>No orders recorded yet.</td></tr>";
+         "<td>"+statusSelect(x.status||"new")+"</td>"+
+         "<td>"+stockCell(x)+"</td></tr>";
+     }).join(""):"<tr><td colspan='9' style='text-align:center;color:var(--faint);padding:1.5rem'>No orders recorded yet.</td></tr>";
+     wireOrders();
      var rev=o.reduce(function(s,x){return s+Number(x.total||0)},0);
      omsg(o.length+" order(s) · AED "+rev.toFixed(2)+" total","ok");
    }).catch(function(e){ omsg(e.message,"bad") });
@@ -1337,6 +1470,16 @@ $("save").onclick=function(){
   document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(a.href);
   setDirty(false);
 };
+
+/* Wide columns puts the table back to sizing by content, for when you want to
+   read a whole photo link rather than fit everything on one screen. */
+try{ $("wide").checked=localStorage.getItem("mas_wide")==="1" }catch(e){}
+function applyWide(){
+  $("tw").className="tw"+($("wide").checked?" tw--wide":"");
+  try{ localStorage.setItem("mas_wide",$("wide").checked?"1":"0") }catch(e){}
+}
+$("wide").onchange=applyWide;
+applyWide();
 
 $("alang").onclick=function(){
   ALANG = ALANG==="ar" ? "en" : "ar";
