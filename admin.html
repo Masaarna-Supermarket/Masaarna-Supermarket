@@ -5,7 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Masaarna — Product Manager</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap">
+<!-- Excel reading and writing. Two sources: if the first is blocked — some
+     office networks block CDNs outright — the second is tried before anything
+     gives up, and if both fail the buttons say so instead of failing silently. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+if (typeof XLSX === "undefined") {
+  document.write('<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"><\/script>');
+}
+</script>
 <style>
 :root{
  --paper:#fbfaf7;--card:#fff;--sunk:#f2efe9;--ink:#1d1a17;--ink2:#5f584f;--faint:#8d857a;
@@ -124,6 +132,45 @@ td .e:focus{border-color:var(--saffron);background:var(--card)}
 details{margin-top:.5rem}
 summary{cursor:pointer;font-size:.82rem;font-weight:500;color:var(--ink2)}
 summary:hover{color:var(--saffron)}
+/* Every edit — one price or seven hundred — changes things HERE. This bar is
+   the whole of the difference between "changed" and "live", said out loud and
+   impossible to walk past. */
+.unsaved{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--ink);color:var(--paper);
+ display:flex;align-items:center;gap:.7rem;padding:.7rem 1rem;flex-wrap:wrap;
+ box-shadow:0 -8px 22px rgba(0,0,0,.16);padding-bottom:calc(.7rem + env(safe-area-inset-bottom))}
+.unsaved[hidden]{display:none}
+.unsaved__t{flex:1;min-width:11rem;font-size:.88rem;line-height:1.35}
+.unsaved__t b{color:var(--saffron)}
+.unsaved .btn{background:var(--card);border-color:transparent}
+body.hasunsaved{padding-bottom:5rem}
+/* The manager on a phone. Price and stock are the two things anyone actually
+   edits away from a desk, so those stay; the photo and the photo link — which
+   need a real screen anyway — step aside to make room. Everything is still
+   reachable by scrolling sideways. */
+@media(max-width:820px){
+  .top__in{flex-wrap:wrap;gap:.4rem}
+  .top__in .sp{width:100%;display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem}
+  .tb{font-size:.78rem;padding:.4rem .6rem}
+  .tools{padding:.8rem .75rem}
+  .row{gap:.4rem}
+  .row>.inp,.row>.btn{flex:1 1 auto;min-width:8.5rem}
+  .inp--w{min-width:100%}
+  .flds{grid-template-columns:1fr 1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  table{table-layout:auto;font-size:.8rem}
+  #tbl col{width:auto!important}
+  #h_photo,#h_img,#rows td:nth-child(2),#rows td:nth-child(10){display:none}
+  .e--nm{min-width:9rem}
+  .tw{max-height:58vh}
+  .unsaved__t{min-width:100%}
+}
+@media(max-width:520px){
+  .flds{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  #h_cat,#rows td:nth-child(6){display:none}
+  .row>.inp,.row>.btn{min-width:100%}
+  .row>.msg{min-width:100%}
+}
 .boot{max-width:640px;margin:4rem auto;text-align:center;padding:1rem}
 .boot h1{font-family:var(--display);font-size:1.5rem;margin:0 0 .4rem}
 .boot p{color:var(--ink2)}
@@ -166,6 +213,12 @@ summary:hover{color:var(--saffron)}
     <button class="tb" id="theme">◐</button>
   </span>
 </div></header>
+
+<div class="unsaved" id="unsaved" hidden>
+  <span class="unsaved__t" id="unsaved_t"></span>
+  <button class="btn btn--go" id="u_pub">Publish to shop</button>
+  <button class="btn" id="u_drop">Throw these away</button>
+</div>
 
 <div class="boot" id="boot">
   <h1>Open your products</h1>
@@ -235,7 +288,16 @@ summary:hover{color:var(--saffron)}
       <label class="fld"><span>TikTok link</span><input class="inp" id="s_tik"></label>
       <label class="fld"><span>WhatsApp channel link</span><input class="inp" id="s_wac"></label>
       <label class="fld"><span>Instagram link</span><input class="inp" id="s_ig" placeholder="https://instagram.com/..."></label>
+      <label class="fld"><span>Banner picture link</span><input class="inp" id="s_ban" placeholder="https://i.ibb.co/..../banner.jpg"></label>
+      <label class="fld"><span>Banner goes to (optional)</span><input class="inp" id="s_banlink" placeholder="https://..."></label>
     </div>
+    <div class="row" style="margin-top:.55rem">
+      <button class="btn" id="banup">Upload a banner picture…</button>
+      <span class="msg msg--inf" id="banmsg">Needs your ImgBB key, below. Leave the banner
+        empty and no strip shows on the shop at all.</span>
+    </div>
+    <input type="file" id="banfile" accept="image/*" hidden>
+
     <label class="fld" style="margin-top:.7rem">
       <span>Delivery areas — one per line</span>
       <textarea class="inp" id="s_areas" rows="4" spellcheck="false"
@@ -487,7 +549,20 @@ var DOC=null, P=[], sortKey="", sortDir=1, dirty=false, CAP=400;
 function $(i){return document.getElementById(i)}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
   return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
-function setDirty(v){dirty=v;$("dirty").innerHTML=v?'<span class="dirty">unsaved</span>':""}
+var changed=0;
+function setDirty(v,n){
+  if(v)changed+=(n||1); else changed=0;
+  dirty=v;
+  $("dirty").innerHTML=v?'<span class="dirty">'+(ALANG==="ar"?"غير منشور":"not live yet")+'</span>':"";
+  $("unsaved").hidden=!v;
+  document.body.classList.toggle("hasunsaved",!!v);
+  if(v){
+    $("unsaved_t").innerHTML = ALANG==="ar"
+      ? "لديك <b>"+changed+"</b> تغيير لم يُنشر بعد. لن يراه الزبائن حتى تضغط انشر على المتجر."
+      : "You have <b>"+changed+"</b> change"+(changed===1?"":"s")+" that are <b>not live yet</b>. "+
+        "Customers still see the old shop until you press Publish.";
+  }
+}
 window.addEventListener("beforeunload",function(e){if(dirty){e.preventDefault();e.returnValue=""}});
 
 /* ── load ───────────────────────────────────────────── */
@@ -646,7 +721,8 @@ Array.prototype.forEach.call(document.querySelectorAll("[data-bulk]"),function(b
       else if(k==="clearoffer"&&p.was!=null){delete p.was;n++}
     });
     setDirty(true);draw();
-    $("bmsg").className="msg msg--ok";$("bmsg").textContent=n+" product(s) changed";
+    $("bmsg").className="msg msg--ok";$("bmsg").textContent=n+(ALANG==="ar"
+      ?" منتج تغيّر هنا — لن يظهر حتى تنشر":" changed here — not live until you press Publish");
   }});
 $("bgo").onclick=function(){
   var rows=filtered(),a=$("bact").value,v=$("bval").value,n=0;
@@ -667,7 +743,8 @@ $("bgo").onclick=function(){
     }
   });
   setDirty(true);draw();
-  $("bmsg").className="msg msg--ok";$("bmsg").textContent=n+" product(s) changed";
+  $("bmsg").className="msg msg--ok";$("bmsg").textContent=n+(ALANG==="ar"
+      ?" منتج تغيّر هنا — لن يظهر حتى تنشر":" changed here — not live until you press Publish");
 };
 
 /* ── photos: paste a list ───────────────────────────── */
@@ -736,6 +813,38 @@ function toB64(f){return new Promise(function(res,rej){
   var r=new FileReader();r.onload=function(){res(String(r.result).split(",")[1])};
   r.onerror=rej;r.readAsDataURL(f)})}
 
+/* One picture, straight into the banner box. Reuses the same ImgBB key as the
+   product photos rather than asking for a second one. */
+$("banup").onclick=function(){
+  if(!$("ibkey").value.trim()){
+    $("banmsg").className="msg msg--bad";
+    $("banmsg").textContent="Put your ImgBB key in the Photos panel below first, then try again.";
+    return;
+  }
+  $("banfile").click();
+};
+$("banfile").onchange=function(e){
+  var f=e.target.files[0]; e.target.value="";
+  if(!f)return;
+  $("banmsg").className="msg msg--inf"; $("banmsg").textContent="Uploading "+f.name+"…";
+  var fd=new FormData();
+  fd.append("key",$("ibkey").value.trim());
+  fd.append("image",f);
+  fetch("https://api.imgbb.com/1/upload",{method:"POST",body:fd})
+    .then(function(r){return r.json()})
+    .then(function(j){
+      if(!j||!j.success||!j.data||!j.data.url)throw new Error((j&&j.error&&j.error.message)||"ImgBB refused it");
+      $("s_ban").value=j.data.url;
+      setDirty(true);
+      $("banmsg").className="msg msg--ok";
+      $("banmsg").innerHTML="Uploaded. Press <strong>Publish to shop</strong> to put it on the shop.";
+    })
+    .catch(function(err){
+      $("banmsg").className="msg msg--bad";
+      $("banmsg").textContent="Could not upload: "+err.message;
+    });
+};
+
 function upload(files){
   var key=$("ibkey").value.trim();
   if(!key){$("upmsg").textContent="Put your ImgBB key in first.";return}
@@ -783,8 +892,18 @@ var COLS=[["sku","Barcode"],["name","Product name"],["nameAr","Arabic name"],
           ["cat","Category"],["price","Price"],
           ["was","Was price (offer)"],["stock","Stock"],["weight","Weight"],["origin","Origin"],
           ["img","Image link"],["visible","Show on shop (1/0)"]];
+function excelReady(){
+  if(typeof XLSX!=="undefined")return true;
+  alert("The Excel tools could not load.\n\n"+
+        "This page needs one file from the internet to read and write .xlsx, and it did "+
+        "not arrive — usually a blocked connection or a network that filters CDNs.\n\n"+
+        "Everything else in this page works. Try again on another connection, or use "+
+        "Backup file to take your products out as a .json instead.");
+  return false;
+}
 $("xlout").onclick=function(){
   if(!P.length)return;
+  if(!excelReady())return;
   var aoa=[COLS.map(function(c){return c[1]})];
   P.forEach(function(p){aoa.push(COLS.map(function(c){return p[c[0]]!==undefined?p[c[0]]:""}))});
   var ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -792,8 +911,11 @@ $("xlout").onclick=function(){
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Products");
   XLSX.writeFile(wb,"masaarna-products-"+new Date().toISOString().slice(0,10)+".xlsx");
 };
-$("xlin").onclick=function(){$("xlfile").click()};
+$("xlin").onclick=function(){
+  if(!excelReady())return;$("xlfile").click()};
 $("xlfile").onchange=function(e){
+  // a file can arrive without the button being pressed, so check here too
+  if(!excelReady()){ e.target.value=""; return }
   var f=e.target.files[0];if(!f)return;
   var r=new FileReader();
   r.onload=function(){
@@ -801,14 +923,48 @@ $("xlfile").onchange=function(e){
       // cellHTML/cellStyles off, but we need the hyperlink objects, which SheetJS
       // hangs off each cell as .l.Target — that is where YOUR image links live.
       var wb=XLSX.read(new Uint8Array(r.result),{type:"array",cellFormula:false});
-      var ws=wb.Sheets[wb.SheetNames[0]];
+      /* A real workbook has several sheets — an inventory one, an export format
+         for a delivery app, notes. Taking the first one blindly picked the wrong
+         one and quietly imported nothing but images. So score every sheet on how
+         many columns it has that we understand, and use the best. */
+      function scoreSheet(name){
+        var sh=wb.Sheets[name]; if(!sh||!sh["!ref"])return -1;
+        var rr=XLSX.utils.decode_range(sh["!ref"]);
+        var heads=[];
+        for(var c=rr.s.c;c<=rr.e.c&&c<rr.s.c+40;c++){
+          var cc=sh[XLSX.utils.encode_cell({r:rr.s.r,c:c})];
+          if(cc&&cc.v!=null)heads.push(String(cc.v).replace(/\s+/g," ").trim().toLowerCase());
+        }
+        var has=function(){ for(var i=0;i<arguments.length;i++)
+          if(heads.indexOf(arguments[i])>-1)return true; return false };
+        if(!has("barcode","sku","code","item code","barcode number"))return -1;   // no barcode, no use
+        var n=1;
+        if(has("sale price","selling price","retail price","price incl vat","item price incl vat","price"))n+=3;
+        if(has("product name","item name","item","name","description"))n+=2;
+        if(has("stock","quantity","qty","quantity in stock","on hand"))n+=2;
+        if(has("category","class","main category english","department","section"))n+=1;
+        if(has("photo link","image link","image 1","image link 1"))n+=1;
+        if(has("weight"))n+=1;
+        if(has("origin"))n+=1;
+        return n;
+      }
+      var best=wb.SheetNames[0], bestScore=-2, scores=[];
+      wb.SheetNames.forEach(function(nm){
+        var sc=scoreSheet(nm); scores.push(nm+" ("+sc+")");
+        if(sc>bestScore){ bestScore=sc; best=nm }
+      });
+      if(bestScore<0)throw new Error('No sheet in that file has a "Barcode" column.\n\nSheets looked at: '+scores.join(", "));
+      var sheetUsed=best;
+      var ws=wb.Sheets[best];
       var ref=XLSX.utils.decode_range(ws["!ref"]);
       // header row -> column index
       var hdr={};
       for(var c=ref.s.c;c<=ref.e.c;c++){
         var cell=ws[XLSX.utils.encode_cell({r:ref.s.r,c:c})];
-        var h=cell&&cell.v!=null?String(cell.v).trim().toLowerCase():"";
-        if(h)hdr[h]=c;
+        // headers arrive with trailing spaces, double spaces and stray case;
+        // fold all of that away so one spelling in the list below is enough
+        var h=cell&&cell.v!=null?String(cell.v).replace(/\s+/g," ").trim().toLowerCase():"";
+        if(h&&hdr[h]===undefined)hdr[h]=c;
       }
       function col(){for(var i=0;i<arguments.length;i++){if(hdr[arguments[i]]!==undefined)return hdr[arguments[i]]}return undefined}
       function val(rw,c){if(c===undefined)return "";var x=ws[XLSX.utils.encode_cell({r:rw,c:c})];return x&&x.v!=null?String(x.v).trim():""}
@@ -823,12 +979,17 @@ $("xlfile").onchange=function(e){
       }
       function isImage(u){return /i\.ibb\.co/.test(u)||/\.(jpg|jpeg|png|webp|avif|gif)(\?|$)/i.test(u)}
 
-      var cBar=col("barcode","sku","barcode ","code");
+      var cBar=col("barcode","sku","code","item code","barcode number");
       if(cBar===undefined)throw new Error('No "Barcode" column found in the header row.');
-      var cName=col("product name","name","item","item name","item (inventory)");
-      var cCat=col("category","class","class ","main category english");
-      var cPrice=col("price","sale price","sale price ");
-      var cStock=col("stock","quantity","quantity ","qty");
+      var cName=col("product name","item name","item","name","description","item (inventory)");
+      var cNameAr=col("arabic name","name in arabic","item name arabic","\u0627\u0644\u0627\u0633\u0645 \u0628\u0627\u0644\u0639\u0631\u0628\u064a");
+      var cCat=col("category","class","main category english","department","section");
+      /* "Sale price" first, ALWAYS. A stock sheet usually carries the COST price
+         under the plain heading "Price"; importing that would put your cost on
+         the shelf edge and sell everything at a loss. */
+      var cPrice=col("sale price","selling price","retail price","price incl vat",
+                     "item price incl vat","price");
+      var cStock=col("stock","quantity","qty","quantity in stock","on hand");
       var cWeight=col("weight"), cOrigin=col("origin");
       var cVis=col("show on shop (1/0)","visible");
       var cWas=col("was price (offer)","was","old price","offer from");
@@ -853,7 +1014,9 @@ $("xlfile").onchange=function(e){
 
         if(!p){
           if(!name||isNaN(price)){bad++;continue}
-          p={sku:sku,name:name,cat:cCat!==undefined?(val(rw,cCat)||"GROCERY"):"GROCERY",
+          p={sku:sku,name:name,
+             nameAr:cNameAr!==undefined?val(rw,cNameAr):"",
+             cat:cCat!==undefined?(val(rw,cCat)||"GROCERY"):"GROCERY",
              price:Math.round(price*100)/100,stock:isNaN(stock)?0:stock,
              weight:cWeight!==undefined?val(rw,cWeight):"",origin:cOrigin!==undefined?val(rw,cOrigin):"",
              img:"",visible:0};
@@ -863,6 +1026,7 @@ $("xlfile").onchange=function(e){
           if(!isNaN(price))p.price=Math.round(price*100)/100;
           if(!isNaN(stock))p.stock=stock;
           if(cCat!==undefined&&val(rw,cCat))p.cat=val(rw,cCat);
+          if(cNameAr!==undefined&&val(rw,cNameAr))p.nameAr=val(rw,cNameAr);
           if(cWeight!==undefined&&val(rw,cWeight))p.weight=val(rw,cWeight);
           if(cOrigin!==undefined&&val(rw,cOrigin))p.origin=val(rw,cOrigin);
           up++;
@@ -886,6 +1050,7 @@ $("xlfile").onchange=function(e){
             imgSet+" got an image link"+(shown?"  ("+shown+" of them switched on)":"")+"\n"+
             (pageOnly?pageOnly+" had only an ibb.co PAGE link — those need the direct i.ibb.co address\n":"")+
             bad+" rows skipped\n\n"+
+            "Sheet used: "+sheetUsed+"\n"+
             (imgCols.length?"Image columns read: "+imgCols.length:"No image column found — check the header row says Image 1 / Photo / Image link."));
     }catch(err){alert("Could not read that file.\n\n"+err.message)}
   };
@@ -907,7 +1072,9 @@ var SHOPF=[
   ["s_rev",    ["links","googleReview"]],["s_tik",  ["links","tiktok"]],
   ["s_wac",    ["links","whatsappCommunity"]],
   ["s_ig",     ["links","instagram"]],
-  ["s_comm",   ["delivery","community"]]
+  ["s_comm",   ["delivery","community"]],
+  ["s_ban",    ["banner","img"]],
+  ["s_banlink",["banner","link"]]
 ];
 
 /* Times are chosen from a list, so "10:00 AM" and "00:00 AM" can no longer be
@@ -1159,6 +1326,13 @@ function normalise(){
   DOC.products=P;
   readShop();
 }
+$("u_pub").onclick=function(){ $("pub").click() };
+$("u_drop").onclick=function(){
+  if(!confirm(ALANG==="ar"
+    ? "التراجع عن كل التغييرات غير المنشورة والعودة إلى ما هو منشور الآن؟"
+    : "Throw away every change you have made here and go back to what is live on the shop?"))return;
+  pull(false).catch(function(e){ if(e&&e.message)cmsg(e.message,"bad") });
+};
 $("pub").onclick=function(){
   if(!DOC)return;
   if(!oapi())return cmsg("Put your shop address in the box above first.","bad");

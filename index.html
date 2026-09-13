@@ -247,6 +247,11 @@ body[dir="rtl"] .isearch svg{left:auto;right:1.75rem}
 .load{max-width:1240px;margin:0 auto;padding:4rem 1rem;text-align:center;color:var(--faint)}
 
 /* store strip */
+/* Shown only when you have put a picture in. No picture, no empty strip. */
+.banner{display:block;max-width:1240px;margin:0 auto;padding:.8rem 1rem 0;text-decoration:none}
+.banner[hidden]{display:none}
+.banner img{display:block;width:100%;height:auto;border-radius:14px;box-shadow:var(--shadow)}
+.banner[href]:hover img{filter:brightness(1.03)}
 .hero{border-bottom:1px solid var(--line);background:var(--card)}
 .hero__in{max-width:1240px;margin:0 auto;padding:.85rem 1rem}
 .hero__about{margin:0 0 .45rem;font-size:.92rem;color:var(--ink2);max-width:64ch}
@@ -327,6 +332,8 @@ body[dir="rtl"] .isearch svg{left:auto;right:1.75rem}
   <button class="ib" id="lang" title="العربية">ع</button>
   <button class="ib" id="theme" title="Theme">◐</button>
 </div></header>
+
+<a class="banner" id="banner" hidden><img id="banner_img" alt=""></a>
 
 <section class="hero" id="hero">
   <div class="hero__in">
@@ -478,14 +485,14 @@ var T={en:{all:"All products",search:"Search products or barcode…",basket:"You
  hint:"Opens WhatsApp with your order written out. We reply to confirm and arrange delivery.",
  empty:"Nothing matched",emptyd:"Try another word, or pick a different category.",
  allc:"All",low:"Low",out:"Out",items:function(n){return n+" item"+(n===1?"":"s")},
- basketEmpty:"Your order is empty",view:"View basket",placeholder:"e.g. Deira, Dubai",
+ basketEmpty:"Your order is empty",view:"View basket",placeholder:"e.g. Tilal City, building 4, flat 12",
  hello:"Hello! I would like to order:",from:"Name",to:"Deliver to",note2:"Note",total:"Total"},
  ar:{all:"كل المنتجات",search:"ابحث عن منتج أو باركود…",basket:"طلبك",name:"الاسم",
  area:"منطقة التوصيل",note:"ملاحظة (اختياري)",tot:"الإجمالي",send:"أرسل الطلب عبر واتساب",
  hint:"سيفتح واتساب وطلبك مكتوب. سنرد للتأكيد وترتيب التوصيل.",
  empty:"لا توجد نتائج",emptyd:"جرّب كلمة أخرى أو اختر فئة مختلفة.",
  allc:"الكل",low:"قليل",out:"نفد",items:function(n){return n+" منتج"},
- basketEmpty:"سلة الطلب فارغة",view:"عرض الطلب",placeholder:"مثال: ديرة، دبي",
+ basketEmpty:"سلة الطلب فارغة",view:"عرض الطلب",placeholder:"مثال: تلال سيتي، مبنى ٤، شقة ١٢",
  hello:"مرحباً! أرغب بطلب:",from:"الاسم",to:"التوصيل إلى",note2:"ملاحظة",total:"الإجمالي"}};
 
 var HUE={"GROCERY":[32,72,48],"CHEESE SECTION":[44,74,52],"DRINKS":[203,55,45],"SPICES":[8,62,44],
@@ -865,6 +872,7 @@ function hoursLabel(){
 function drawHero(){
   var about=lang==="ar"?(SHOP.aboutAr||SHOP.about||""):(SHOP.about||"");
   $("hero_about").textContent=about;
+  drawBanner();
   drawHeroLinks();
   var loc=shopLoc(), open=hoursOpenNow();
   var dot=open===null?"":'<span class="dot '+(open?"dot--on":"dot--off")+'"></span>';
@@ -940,6 +948,21 @@ function drawFooter(){
 /* The same links as the footer, but up here where people actually are. Each one
    appears ONLY when it has been filled in — an empty field shows nothing at all,
    never a dead button. */
+/* A banner is worth nothing if it shows a broken image, so the picture has to
+   load before the strip appears at all. */
+function drawBanner(){
+  var b=SHOP.banner||{}, img=String(b.img||"").trim(), href=String(b.link||"").trim();
+  var el=$("banner"), im=$("banner_img");
+  if(!img){ el.hidden=true; im.removeAttribute("src"); return }
+  im.onerror=function(){ el.hidden=true };
+  im.onload=function(){ el.hidden=false };
+  im.src=img;
+  im.alt=b.alt||(lang==="ar"?(SHOP.nameAr||""):(SHOP.name||""));
+  if(href){ el.setAttribute("href",href); el.setAttribute("target","_blank");
+            el.setAttribute("rel","noopener") }
+  else { el.removeAttribute("href"); el.removeAttribute("target"); el.removeAttribute("rel") }
+}
+
 function drawHeroLinks(){
   var L=SHOP.links||{}, out=[];
   SOCIALS.forEach(function(q){
