@@ -82,11 +82,18 @@ td .e:focus{border-color:var(--saffron);background:var(--card)}
 .e--img{min-width:13rem;font-size:.74rem;font-family:ui-monospace,monospace}
 .th{width:34px;height:34px;border-radius:6px;object-fit:contain;background:var(--sunk);display:block}
 .noth{width:34px;height:34px;border-radius:6px;background:var(--berry-soft);color:var(--berry);display:grid;place-items:center;font-size:.6rem;font-weight:700}
-.sw{position:relative;width:34px;height:19px;flex:none}
+/* A <label> is inline, and width and height do not apply to inline boxes — so
+   this switch was rendering 0px wide and could not be seen or tapped. */
+.sw{display:inline-block;vertical-align:middle;position:relative;width:34px;height:19px;flex:none}
 .sw input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
 .sw span{position:absolute;inset:0;background:var(--line2);border-radius:99px;transition:background .15s}
 .sw span::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:transform .15s}
 .sw input:checked+span{background:var(--pistachio)}
+.onoff{display:inline-block;margin-inline-start:.4rem;font-size:.62rem;font-weight:700;
+ letter-spacing:.06em;text-transform:uppercase;vertical-align:middle;
+ padding:.1rem .34rem;border-radius:5px}
+.onoff--on{background:color-mix(in srgb,var(--pistachio) 18%,transparent);color:var(--pistachio)}
+.onoff--off{background:var(--sunk);color:var(--faint)}
 .sw input:checked+span::after{transform:translateX(15px)}
 .pill{display:inline-block;border-radius:5px;padding:.08rem .4rem;font-size:.66rem;font-weight:600}
 .p-ok{background:var(--pistachio-soft);color:var(--pistachio)}
@@ -137,6 +144,7 @@ summary:hover{color:var(--saffron)}
     <button class="tb" id="xlin">Import Excel</button>
     <button class="tb" id="save">Backup file</button>
     <button class="tb tb--go" id="pub">Publish to shop</button>
+    <button class="tb" id="alang" title="العربية">ع</button>
     <button class="tb" id="theme">◐</button>
   </span>
 </div></header>
@@ -201,6 +209,7 @@ summary:hover{color:var(--saffron)}
       <label class="fld"><span>Opens</span><select class="inp" id="s_hfrom"></select></label>
       <label class="fld"><span>Closes</span><select class="inp" id="s_hto"></select></label>
       <label class="fld"><span>Delivery radius in km</span><input class="inp" id="s_radius" type="number" min="1" max="50" step="1"></label>
+      <label class="fld"><span>Community name</span><input class="inp" id="s_comm" placeholder="Masaar, Al Suyoh — Sharjah"></label>
       <label class="fld"><span>Area name</span><input class="inp" id="s_area"></label>
       <label class="fld"><span>Area name in Arabic</span><input class="inp" id="s_areaAr" dir="rtl"></label>
       <label class="fld"><span>Google Maps link</span><input class="inp" id="s_map"></label>
@@ -209,6 +218,18 @@ summary:hover{color:var(--saffron)}
       <label class="fld"><span>WhatsApp channel link</span><input class="inp" id="s_wac"></label>
       <label class="fld"><span>Instagram link</span><input class="inp" id="s_ig" placeholder="https://instagram.com/..."></label>
     </div>
+    <label class="fld" style="margin-top:.7rem">
+      <span>Delivery areas — one per line</span>
+      <textarea class="inp" id="s_areas" rows="4" spellcheck="false"
+        style="resize:vertical;font-size:.86rem;line-height:1.5"
+        placeholder="Sendian&#10;Kaya&#10;Robinia"></textarea>
+    </label>
+    <p class="hint" style="margin:.35rem 0 0">
+      Customers pick one of these at checkout and just add their cluster and villa number,
+      instead of typing an address. Anyone outside the list can still order — they get
+      <strong>Somewhere else within 7 km</strong> and a free text box. Leave this empty and
+      checkout goes back to one plain address box.
+    </p>
     <p class="hint" id="wahint" style="margin:.5rem 0 0"></p>
   </div>
 
@@ -295,9 +316,11 @@ summary:hover{color:var(--saffron)}
   <div class="tw">
     <table>
       <thead><tr>
-        <th data-s="visible">On</th><th>Photo</th><th data-s="name">Product</th>
-        <th data-s="sku">Barcode</th><th data-s="cat">Category</th>
-        <th data-s="price">Price</th><th data-s="was">Was (offer)</th><th data-s="stock">Stock</th><th>Image link</th>
+        <th data-s="visible" id="h_on">On</th><th id="h_photo">Photo</th><th data-s="name" id="h_name">Product</th>
+        <th data-s="nameAr" id="h_namear">Arabic name</th>
+        <th data-s="sku" id="h_sku">Barcode</th><th data-s="cat" id="h_cat">Category</th>
+        <th data-s="price" id="h_price">Price</th><th data-s="was" id="h_was">Was (offer)</th>
+        <th data-s="stock" id="h_stock">Stock</th><th id="h_img">Image link</th>
       </tr></thead>
       <tbody id="rows"></tbody>
     </table>
@@ -345,6 +368,85 @@ summary:hover{color:var(--saffron)}
 <script>
 (function(){
 "use strict";
+
+/* ── English / Arabic ──────────────────────────────────────────────────────
+   Translating by element id would mean editing eighty tags and keeping two
+   lists in step forever. Instead: one dictionary of the exact English strings,
+   swapped in place at runtime. Only elements with no child elements are
+   touched, so a sentence with bold inside it is never mangled, and the English
+   is kept on the element so switching back is exact rather than reconstructed. */
+var ALANG="en";
+var AR={
+  "Open products.json":"افتح products.json","Export Excel":"تصدير إكسل",
+  "Import Excel":"استيراد إكسل","Backup file":"نسخة احتياطية","Publish to shop":"انشر على المتجر",
+  "Product manager":"إدارة المنتجات",
+  "Open your products":"افتح منتجاتك","Load the live catalog":"حمّل الكتالوج المباشر",
+  "Shop address and key":"عنوان المتجر والمفتاح","Sign in":"تسجيل الدخول","Sign out":"تسجيل الخروج",
+  "Load live catalog":"حمّل الكتالوج المباشر","Stay signed in on this computer":"ابقني مسجلاً على هذا الجهاز",
+  "Can anyone else change my shop?":"هل يستطيع أحد غيري تغيير متجري؟",
+  "Run the security check":"افحص الحماية",
+  "Shop details":"بيانات المتجر","Shop name":"اسم المتجر","Shop name in Arabic":"اسم المتجر بالعربي",
+  "WhatsApp number — digits only":"رقم واتساب — أرقام فقط","Phone to show":"الهاتف المعروض",
+  "Email":"البريد الإلكتروني","Opens":"يفتح","Closes":"يغلق",
+  "Delivery radius in km":"نطاق التوصيل بالكيلومتر","Community name":"اسم المجمع",
+  "Area name":"اسم المنطقة","Area name in Arabic":"اسم المنطقة بالعربي",
+  "Google Maps link":"رابط خرائط جوجل","Google review link":"رابط تقييم جوجل",
+  "TikTok link":"رابط تيك توك","WhatsApp channel link":"رابط قناة واتساب",
+  "Instagram link":"رابط إنستغرام","Delivery areas — one per line":"مناطق التوصيل — منطقة في كل سطر",
+  "Filter":"تصفية","All categories":"كل الأقسام","Shown and hidden":"المعروض والمخفي",
+  "Shown only":"المعروض فقط","Hidden only":"المخفي فقط",
+  "Offers and normal":"العروض والعادي","On offer only":"العروض فقط","No offer":"بدون عرض",
+  "With and without photo":"بصورة وبدون","Has a photo":"له صورة","No photo":"بدون صورة",
+  "Do this to everything currently filtered":"طبّق على كل ما هو مُصفّى الآن",
+  "Show all":"إظهار الكل","Hide all":"إخفاء الكل",
+  "Hide the ones with no photo":"إخفاء ما ليس له صورة",
+  "Show the ones that have a photo":"إظهار ما له صورة","Clear all offers":"إلغاء كل العروض",
+  "Set price to":"حدد السعر","Change price by %":"غيّر السعر بنسبة %","Set stock to":"حدد المخزون",
+  "Add to stock":"أضف للمخزون","Move to category":"انقل إلى قسم","Put on offer, % off":"ضع عرضاً، خصم %",
+  "Apply":"تطبيق","Photos":"الصور","Remember key":"احفظ المفتاح",
+  "Orders":"الطلبات","Load orders":"حمّل الطلبات","Download orders for Excel":"نزّل الطلبات لإكسل",
+  "Undo a publish":"تراجع عن نشر","Show past publishes":"اعرض عمليات النشر السابقة",
+  "Download a backup of what is live":"نزّل نسخة مما هو منشور",
+  "On":"الحالة","Photo":"صورة","Product":"المنتج","Arabic name":"الاسم بالعربي",
+  "Barcode":"الباركود","Category":"القسم","Price":"السعر","Was (offer)":"قبل العرض",
+  "Stock":"المخزون","Image link":"رابط الصورة",
+  "Order":"الطلب","When":"متى","Customer":"العميل","Phone":"الهاتف","Area":"المنطقة",
+  "Items":"الأصناف","Total":"الإجمالي","Status":"الحالة",
+  "Products":"المنتجات","On the shop":"على المتجر","Have a photo":"لها صورة",
+  "Your own photos":"صورك الخاصة","On offer":"على عرض","Stock value":"قيمة المخزون",
+  "Search name, barcode or category":"ابحث بالاسم أو الباركود أو القسم",
+  "Admin key":"مفتاح الإدارة","ImgBB API key":"مفتاح ImgBB","paste a link":"الصق رابطاً"
+};
+function T2(){ return ALANG==="ar"
+  ? {on:"معروض",off:"مخفي"}
+  : {on:"On",off:"Off"} }
+
+function swapText(root){
+  var toAr=ALANG==="ar";
+  var all=root.querySelectorAll("button,h1,h2,h3,th,span,option,label,p,small,em,strong,div");
+  Array.prototype.forEach.call(all,function(el){
+    if(el.children.length)return;                 // leaves only: never break markup
+    if(el.hasAttribute("data-noswap"))return;     // set elsewhere, in both languages
+    var en=el.dataset.en!==undefined?el.dataset.en:el.textContent.trim();
+    if(!en)return;
+    if(toAr&&AR[en]!==undefined){ el.dataset.en=en; el.textContent=AR[en] }
+    else if(!toAr&&el.dataset.en!==undefined){ el.textContent=el.dataset.en }
+  });
+  Array.prototype.forEach.call(root.querySelectorAll("[placeholder]"),function(el){
+    var en=el.dataset.enp!==undefined?el.dataset.enp:el.getAttribute("placeholder");
+    if(!en)return;
+    if(toAr&&AR[en]!==undefined){ el.dataset.enp=en; el.setAttribute("placeholder",AR[en]) }
+    else if(!toAr&&el.dataset.enp!==undefined){ el.setAttribute("placeholder",el.dataset.enp) }
+  });
+}
+function applyAdminLang(){
+  document.body.dir = ALANG==="ar" ? "rtl" : "ltr";
+  document.documentElement.lang = ALANG;
+  swapText(document.body);
+  var b=document.getElementById("alang");
+  if(b){ b.textContent = ALANG==="ar" ? "EN" : "\u0639"; }
+  try{ localStorage.setItem("mas_alang",ALANG) }catch(e){}
+}
 var DOC=null, P=[], sortKey="", sortDir=1, dirty=false, CAP=400;
 function $(i){return document.getElementById(i)}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
@@ -382,8 +484,31 @@ $("drop").addEventListener("drop",function(e){
 $("open").onclick=function(){$("filein").click()};
 
 /* ── filtering ──────────────────────────────────────── */
+/* One string per product holding every way you might look for it: the English
+   name, the Arabic name, the barcode and the category. Arabic is normalised so
+   that أ إ آ all match ا and ة matches ه — otherwise a shopkeeper typing the
+   everyday spelling finds nothing. Built once per product, not per keystroke. */
+var HAY=null;
+function arNorm(x){
+  return String(x)
+    .replace(/[\u0622\u0623\u0625\u0671]/g,"\u0627")   // آ أ إ ٱ -> ا
+    .replace(/\u0629/g,"\u0647")                        // ة -> ه
+    .replace(/[\u0649\u064A]/g,"\u064A")                // ى -> ي
+    .replace(/[\u064B-\u0652\u0640]/g,"");             // harakat and tatweel
+}
+function hay(p){
+  if(!HAY)HAY=new Map();
+  var v=HAY.get(p);
+  if(v===undefined){
+    v=arNorm([p.name,p.nameAr,p.sku,p.cat,p.origin,p.weight].join(" ")).toLowerCase();
+    HAY.set(p,v);
+  }
+  return v;
+}
+function forgetHay(p){ if(HAY)HAY.delete(p) }
+
 function filtered(){
-  var q=$("q").value.trim().toLowerCase(),c=$("fcat").value,v=$("fvis").value,i=$("fimg").value;
+  var q=arNorm($("q").value.trim()).toLowerCase(),c=$("fcat").value,v=$("fvis").value,i=$("fimg").value;
   var r=P.filter(function(p){
     if(c&&p.cat!==c)return false;
     if(v!==""&&String(p.visible)!==v)return false;
@@ -394,7 +519,7 @@ function filtered(){
     if(i==="1"&&!p.img)return false;
     if(i==="0"&&p.img)return false;
     if(!q)return true;
-    return p.name.toLowerCase().indexOf(q)>-1||String(p.sku).indexOf(q)>-1||p.cat.toLowerCase().indexOf(q)>-1;
+    return hay(p).indexOf(q)>-1;
   });
   if(sortKey)r=r.slice().sort(function(a,b){
     var x=a[sortKey],y=b[sortKey];
@@ -433,11 +558,15 @@ function draw(){
   $("rows").innerHTML=show.map(function(p){
     var i=P.indexOf(p);
     return '<tr class="'+(p.visible?"":"off")+'" data-i="'+i+'">'+
-      '<td><label class="sw"><input type="checkbox" data-v '+(p.visible?"checked":"")+'><span></span></label></td>'+
+      '<td><label class="sw"><input type="checkbox" data-v '+(p.visible?"checked":"")+'><span></span></label>'+
+        '<span class="onoff '+(p.visible?"onoff--on":"onoff--off")+'" data-noswap>'+
+        (p.visible?T2().on:T2().off)+'</span></td>'+
       '<td>'+(p.img?'<img class="th" src="'+esc(p.img)+'" loading="lazy" alt="" '+
              'onerror="this.outerHTML=\'<div class=&quot;noth&quot;>404</div>\'">'
              :'<div class="noth">none</div>')+'</td>'+
       '<td><input class="e e--nm" data-f="name" value="'+esc(p.name)+'"></td>'+
+      '<td><input class="e e--nm" data-f="nameAr" dir="rtl" value="'+esc(p.nameAr||"")+
+        '" placeholder="\u0627\u0644\u0627\u0633\u0645 \u0628\u0627\u0644\u0639\u0631\u0628\u064a"></td>'+
       '<td style="font-size:.76rem;color:var(--faint)">'+esc(p.sku)+'</td>'+
       '<td><input class="e" data-f="cat" value="'+esc(p.cat)+'" style="width:11rem"></td>'+
       '<td><input class="e e--n" data-f="price" type="number" step="0.01" value="'+(p.price||0)+'"></td>'+
@@ -447,17 +576,25 @@ function draw(){
       '<td><input class="e e--img" data-f="img" value="'+esc(p.img||"")+'" placeholder="paste a link"></td></tr>';
   }).join("");
   wire();
+  if(ALANG==="ar")swapText($("rows"));
 }
 function wire(){
   Array.prototype.forEach.call($("rows").querySelectorAll("[data-v]"),function(b){
-    b.onchange=function(){P[+b.closest("tr").dataset.i].visible=b.checked?1:0;
-      b.closest("tr").className=b.checked?"":"off";setDirty(true);stats()}});
+    b.onchange=function(){
+      P[+b.closest("tr").dataset.i].visible=b.checked?1:0;
+      b.closest("tr").className=b.checked?"":"off";
+      var tag=b.closest("td").querySelector(".onoff");
+      tag.textContent=b.checked?T2().on:T2().off;
+      tag.className="onoff "+(b.checked?"onoff--on":"onoff--off");
+      tag.setAttribute("data-noswap","");
+      setDirty(true);stats()}});
   Array.prototype.forEach.call($("rows").querySelectorAll("[data-f]"),function(el){
     el.onchange=function(){
       var p=P[+el.closest("tr").dataset.i],f=el.getAttribute("data-f");
       if(f==="was"){ var w=parseFloat(el.value);
         if(!el.value.trim()||isNaN(w)||w<=0){delete p.was} else {p.was=Math.round(w*100)/100} }
       else p[f]=(f==="price")?parseFloat(el.value)||0:(f==="stock")?parseInt(el.value,10)||0:el.value.trim();
+      forgetHay(p);
       setDirty(true);stats()}});
 }
 
@@ -606,7 +743,8 @@ function upload(files){
 }
 
 /* ── Excel in / out ─────────────────────────────────── */
-var COLS=[["sku","Barcode"],["name","Product name"],["cat","Category"],["price","Price"],
+var COLS=[["sku","Barcode"],["name","Product name"],["nameAr","Arabic name"],
+          ["cat","Category"],["price","Price"],
           ["was","Was price (offer)"],["stock","Stock"],["weight","Weight"],["origin","Origin"],
           ["img","Image link"],["visible","Show on shop (1/0)"]];
 $("xlout").onclick=function(){
@@ -614,7 +752,7 @@ $("xlout").onclick=function(){
   var aoa=[COLS.map(function(c){return c[1]})];
   P.forEach(function(p){aoa.push(COLS.map(function(c){return p[c[0]]!==undefined?p[c[0]]:""}))});
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[{wch:16},{wch:46},{wch:20},{wch:9},{wch:8},{wch:10},{wch:12},{wch:52},{wch:16}];
+  ws["!cols"]=[{wch:16},{wch:46},{wch:40},{wch:20},{wch:9},{wch:8},{wch:10},{wch:12},{wch:16},{wch:52},{wch:16}];
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Products");
   XLSX.writeFile(wb,"masaarna-products-"+new Date().toISOString().slice(0,10)+".xlsx");
 };
@@ -732,7 +870,8 @@ var SHOPF=[
   ["s_map",    ["location","mapUrl"]],
   ["s_rev",    ["links","googleReview"]],["s_tik",  ["links","tiktok"]],
   ["s_wac",    ["links","whatsappCommunity"]],
-  ["s_ig",     ["links","instagram"]]
+  ["s_ig",     ["links","instagram"]],
+  ["s_comm",   ["delivery","community"]]
 ];
 
 /* Times are chosen from a list, so "10:00 AM" and "00:00 AM" can no longer be
@@ -790,6 +929,8 @@ function fillShop(){
   var c=sh.contact||{};
   fillTimes("s_hfrom", normTime(c.hoursFrom));
   fillTimes("s_hto",   normTime(c.hoursTo));
+  var a=(sh.delivery&&Array.isArray(sh.delivery.areas))?sh.delivery.areas:[];
+  $("s_areas").value=a.join("\n");
   checkWa();
 }
 function readShop(){
@@ -806,6 +947,14 @@ function readShop(){
   // and the catalog carries the server address, so an empty config.js on the
   // website cannot quietly cut the shop off from everything you publish
   if(oapi()) sh.api=oapi();
+  // one area per line, blank lines and stray spaces dropped, duplicates removed
+  sh.delivery=sh.delivery||{};
+  var seen={}, list=[];
+  $("s_areas").value.split(/\r?\n/).forEach(function(x){
+    var v=x.trim(); if(!v)return;
+    var k=v.toLowerCase(); if(seen[k])return; seen[k]=1; list.push(v);
+  });
+  sh.delivery.areas=list;
 }
 /* A number still holding letters ("9715XXXXXXXX") loses them and opens a chat
    with "9715" — a dead link that looks fine until a customer tries it. */
@@ -822,6 +971,7 @@ function checkWa(){
         "a landline usually has no WhatsApp, so this normally needs to be the mobile you answer.";
 }
 $("s_wa").oninput=function(){checkWa();setDirty(true)};
+$("s_areas").oninput=function(){setDirty(true)};
 SHOPF.forEach(function(f){
   if(f[0]==="s_wa")return;
   var el=$(f[0]);
@@ -840,19 +990,51 @@ function akey(){ return $("okey").value.trim() }
 function secmsg(t,k){ $("secmsg").className="msg msg--"+(k||"inf"); $("secmsg").innerHTML=t }
 
 /* If THIS page was served from your website and config.js came through empty,
-   then the shop next to it is equally blind — it will show old products no
-   matter how many times you press Publish. That is invisible from the shop
-   itself, so it gets said here, loudly, once. */
+   the shop next to it is equally blind — it shows old products no matter how
+   many times you press Publish, and nothing about the shop says so.
+   
+   But an empty value here has two very different causes, and calling the wrong
+   one out is worse than saying nothing: the file really is empty, or your own
+   browser is holding an old copy of a file that has since been fixed. So ask the
+   website for a fresh copy before deciding which to say. */
 (function(){
-  if(location.protocol==="file:")return;                 // opened from disk: not the website
-  if(String(window.MASAARNA_API||"").trim())return;      // config.js is fine
-  var w=document.createElement("div");
-  w.style.cssText="background:#b91c1c;color:#fff;padding:.8rem 1rem;font-size:.9rem;line-height:1.5";
-  w.innerHTML="<strong>config.js on your website is empty.</strong> Your shop is showing the old "+
-    "products.json and cannot see anything you publish here. Open config.js on your computer, put "+
-    "your shop address between the quotes, and upload that one file to GitHub. "+
-    "<em>The manager still works \u2014 it is the shop that is cut off.</em>";
-  document.body.insertBefore(w,document.body.firstChild);
+  if(location.protocol==="file:")return;               // opened from disk, not the website
+  if(String(window.MASAARNA_API||"").trim())return;    // nothing to worry about
+
+  function bar(colour,html){
+    if(document.getElementById("cfgwarn"))return;   // never two at once
+    var w=document.createElement("div");
+    w.id="cfgwarn";
+    w.style.cssText="background:"+colour+";color:#fff;padding:.8rem 2.6rem .8rem 1rem;"+
+      "font-size:.9rem;line-height:1.5;position:relative";
+    w.innerHTML=html+'<button aria-label="Dismiss" style="position:absolute;top:.5rem;'+
+      'inset-inline-end:.6rem;background:none;border:0;color:#fff;font-size:1.1rem;'+
+      'cursor:pointer;opacity:.8;line-height:1">&times;</button>';
+    w.querySelector("button").onclick=function(){ w.remove() };
+    document.body.insertBefore(w,document.body.firstChild);
+  }
+
+  fetch("config.js?cachebust="+Date.now(),{cache:"no-store"})
+    .then(function(r){ if(!r.ok)throw 0; return r.text() })
+    .then(function(txt){
+      var m=txt.match(/MASAARNA_API\s*=\s*["']([^"']*)["']/);
+      var live=m?m[1].trim():"";
+      if(live){
+        // the file is fine; this browser is just showing yesterday's copy
+        bar("#b45309",
+          "<strong>Your browser is holding an old copy of config.js.</strong> The file on your "+
+          "website is correct \u2014 it points at <code>"+live.replace(/[<>&]/g,"")+"</code>. "+
+          "Press <strong>Ctrl+F5</strong> to load the current one. Nothing is broken for your "+
+          "customers; this is only your own browser\u2019s cache.");
+      } else {
+        bar("#b91c1c",
+          "<strong>config.js on your website is empty.</strong> Your shop is showing the old "+
+          "products.json and cannot see anything you publish here. Open config.js on your "+
+          "computer, put your shop address between the quotes, and upload that one file to "+
+          "GitHub. <em>The manager still works \u2014 it is the shop that is cut off.</em>");
+      }
+    })
+    .catch(function(){ /* could not check: better to say nothing than cry wolf */ });
 })();
 
 $("sectest").onclick=function(){
@@ -1155,6 +1337,15 @@ $("save").onclick=function(){
   document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(a.href);
   setDirty(false);
 };
+
+$("alang").onclick=function(){
+  ALANG = ALANG==="ar" ? "en" : "ar";
+  applyAdminLang();
+  if(DOC)draw();                 // the table is rebuilt, so redraw then re-swap
+  swapText(document.body);
+};
+try{ ALANG=localStorage.getItem("mas_alang")||"en" }catch(e){}
+applyAdminLang();
 
 $("theme").onclick=function(){
   var cur=document.documentElement.getAttribute("data-theme");

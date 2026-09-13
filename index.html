@@ -182,6 +182,10 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
 .sheet__f .wa{position:sticky;bottom:0;z-index:2;box-shadow:0 -10px 14px -10px var(--paper)}
 .sheet__l{min-height:4.2rem}
 .fld{display:flex;flex-direction:column;gap:.2rem}
+.fld2{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.fld[hidden],.fld2[hidden]{display:none}
+.addrhint{margin:.1rem 0 0;font-size:.76rem;color:var(--faint);line-height:1.4}
+.addrhint b{color:var(--ink);font-weight:500}
 .fld span{font-size:.75rem;color:var(--faint);font-weight:500}
 .fld input,.fld select,.fld textarea{border:1px solid var(--line2);background:var(--card);border-radius:9px;padding:.45rem .6rem;font-size:.88rem;width:100%;font-family:inherit}
 /* the search box that lives inside the panel */
@@ -437,7 +441,17 @@ body[dir="rtl"] .isearch svg{left:auto;right:1.75rem}
     <div class="sheet__l" id="lines"></div>
     <div class="sheet__f">
       <label class="fld"><span id="l_name">Your name</span><input id="c_name" autocomplete="name"></label>
-      <label class="fld"><span id="l_area">Delivery area</span><input id="c_area" autocomplete="address-level2" placeholder="Your building or street"></label>
+      <label class="fld" id="fld_district" hidden><span id="l_district">Delivery area</span>
+        <select id="c_district"></select></label>
+      <div class="fld2" id="fld_unit" hidden>
+        <label class="fld"><span id="l_cluster">Cluster</span>
+          <input id="c_cluster" inputmode="numeric" autocomplete="off" placeholder="2"></label>
+        <label class="fld"><span id="l_villa">Villa / unit</span>
+          <input id="c_villa" inputmode="numeric" autocomplete="off" placeholder="287"></label>
+      </div>
+      <label class="fld" id="fld_area"><span id="l_area">Delivery area</span>
+        <input id="c_area" autocomplete="address-level2" placeholder="Your building or street"></label>
+      <p class="addrhint" id="addrhint"></p>
       <p class="rangehint" id="rangehint"></p>
       <label class="fld"><span id="l_phone">Your phone</span><input id="c_phone" type="tel" autocomplete="tel" placeholder="05X XXX XXXX"></label>
       <label class="fld"><span id="l_note">Note (optional)</span><input id="c_note" placeholder="Building, gate code…"></label>
@@ -488,16 +502,34 @@ function money(n){return lang==="ar"?Number(n).toFixed(2)+" د.إ":"AED "+Number
 function tint(c,d){var h=HUE[c]||[30,40,45];return "hsl("+h[0]+" "+h[1]+"% "+(h[2]+(d||0))+"%)"}
 function initials(n){var m=String(n).replace(/[^A-Za-z؀-ۿ ]/g," ").trim().split(/\s+/).slice(0,2)
   .map(function(w){return w.charAt(0)}).join("");return (m||"M").toUpperCase()}
+/* Show the Arabic name when the shop is in Arabic and one exists; fall back to
+   the English name rather than showing a customer an empty label. */
+function pname(p){ return (lang==="ar"&&p.nameAr)?p.nameAr:p.name }
+
+/* أ إ آ all mean ا to someone typing quickly, and ة and ه are used
+   interchangeably. Without folding those together, Arabic search finds nothing
+   for most of what people actually type. */
+function arNorm(x){
+  return String(x==null?"":x)
+    .replace(/[\u0622\u0623\u0625\u0671]/g,"\u0627")
+    .replace(/\u0629/g,"\u0647")
+    .replace(/\u0649/g,"\u064A")
+    .replace(/[\u064B-\u0652\u0640]/g,"");
+}
+function matches(p,q){
+  if(!q)return true;
+  return arNorm([p.name,p.nameAr,p.sku,p.cat].join(" ")).toLowerCase().indexOf(q)>-1;
+}
 function catAr(k){for(var i=0;i<CATS.length;i++){if(CATS[i].key===k)return CATS[i].ar}return k}
 function catLabel(k){return lang==="ar"?catAr(k):k}
 
 function tile(p,small){
   if(p.img){return '<div class="'+(small?"lt":"thumb")+'"><img src="'+esc(p.img)+'" alt="" loading="lazy" '+
     'onerror="var d=this.parentNode;d.style.background=\''+tint(p.cat)+'\';'+
-    'd.innerHTML=\'<span class=&quot;mono&quot;>'+esc(initials(p.name))+'</span>\'">'+
+    'd.innerHTML=\'<span class=&quot;mono&quot;>'+esc(initials(pname(p)))+'</span>\'">'+
     (small?"":(p.weight?'<span class="tag">'+esc(p.weight)+'</span>':"")+stockFlag(p))+'</div>'}
   return '<div class="'+(small?"lt":"thumb")+'" style="background:linear-gradient(145deg,'+tint(p.cat,6)+','+tint(p.cat,-8)+')">'+
-    '<span class="mono">'+esc(initials(p.name))+'</span>'+
+    '<span class="mono">'+esc(initials(pname(p)))+'</span>'+
     (small?"":(p.weight?'<span class="tag">'+esc(p.weight)+'</span>':"")+stockFlag(p))+'</div>';
 }
 function onOffer(p){return p.was!=null&&p.was>p.price}
@@ -511,12 +543,12 @@ function stockFlag(p){
 }
 
 function visible(){
-  var q=$("q").value.trim().toLowerCase();
+  var q=arNorm($("q").value.trim()).toLowerCase();
   var r=ITEMS.filter(function(p){
     if(cat==="__offers"){ if(!onOffer(p))return false }
     else if(cat&&p.cat!==cat)return false;
     if(!q)return true;
-    return p.name.toLowerCase().indexOf(q)>-1||p.sku.indexOf(q)>-1||p.cat.toLowerCase().indexOf(q)>-1;
+    return matches(p,q);
   });
   if(sortBy==="lo")r=r.slice().sort(function(a,b){return a.price-b.price});
   if(sortBy==="hi")r=r.slice().sort(function(a,b){return b.price-a.price});
@@ -547,7 +579,7 @@ function drawGrid(){
   $("grid").innerHTML=cap.map(function(p){
     var q=cart[p.sku]||0;
     return '<article class="card">'+tile(p)+'<div class="body">'+
-      '<p class="nm">'+esc(p.name)+'</p>'+
+      '<p class="nm">'+esc(pname(p))+'</p>'+
       '<div class="meta">'+(p.origin?'<span>'+esc(p.origin)+'</span>':"")+(p.weight?'<span>· '+esc(p.weight)+'</span>':"")+'</div>'+
       '<div class="cardfoot"><span class="pr"><small>'+(lang==="ar"?"د.إ":"AED")+'</small>'+p.price.toFixed(2)+
         (onOffer(p)?'<span class="was">'+p.was.toFixed(2)+'</span>':"")+'</span>'+
@@ -582,7 +614,7 @@ function drawCart(){
   // a + tapped in the search panel must update the row it was tapped on
   if($("isheet").className.indexOf("on")>-1&&$("i_title").dataset.kind==="search")drawSearchResults();
   $("lines").innerHTML=L.length?L.map(function(l){
-    return '<div class="li">'+tile(l.p,1)+'<span class="ln"><b>'+esc(l.p.name)+'</b>'+
+    return '<div class="li">'+tile(l.p,1)+'<span class="ln"><b>'+esc(pname(l.p))+'</b>'+
       '<span>'+l.q+' × '+money(l.p.price)+'</span></span>'+
       '<span class="step"><button data-m="'+l.p.sku+'">−</button><span class="q">'+l.q+'</span>'+
       '<button data-a="'+l.p.sku+'">+</button></span></div>'}).join("")
@@ -606,9 +638,9 @@ function waLink(){
   var L=lines();if(!L.length)return "#";
   var num=waNumber();if(!num)return "#";
   var msg=t().hello+"\n\n";
-  L.forEach(function(l){msg+="• "+l.p.name+(l.p.weight?" ("+l.p.weight+")":"")+" × "+l.q+" — "+money(l.p.price*l.q)+"\n"});
+  L.forEach(function(l){msg+="• "+pname(l.p)+(l.p.weight?" ("+l.p.weight+")":"")+" × "+l.q+" — "+money(l.p.price*l.q)+"\n"});
   msg+="\n"+t().total+": "+money(subtotal());
-  var nm=$("c_name").value.trim(),ar=$("c_area").value.trim(),nt=$("c_note").value.trim();
+  var nm=$("c_name").value.trim(),ar=areaText(),nt=$("c_note").value.trim();
   if(nm)msg+="\n"+t().from+": "+nm;
   if(ar)msg+="\n"+t().to+": "+ar;
   var ph=$("c_phone")?$("c_phone").value.trim():"";
@@ -619,11 +651,63 @@ function waLink(){
   return "https://wa.me/"+num+"?text="+encodeURIComponent(msg);
 }
 
+/* The shop sits inside a compound whose districts have names, and customers
+   there say "Robinia ch2 v287" — not a street. Given the list, the address
+   becomes three taps instead of a sentence typed wrong. Anyone outside still
+   types freely; the shop delivers 7 km, which is wider than the compound. */
+var wantDistrict="";
+function areaList(){
+  var d=SHOP.delivery||{};
+  return Array.isArray(d.areas)?d.areas.filter(function(x){return x&&String(x).trim()}):[];
+}
+function communityName(){
+  var d=SHOP.delivery||{};
+  return String(d.community||"").trim();
+}
+function drawAddress(){
+  var list=areaList();
+  if(!list.length){                      // no list configured: exactly as before
+    $("fld_district").hidden=true;$("fld_unit").hidden=true;$("fld_area").hidden=false;
+    $("addrhint").textContent="";
+    return;
+  }
+  var sel=$("c_district"), keep=sel.value||wantDistrict;
+  sel.innerHTML='<option value="">'+(lang==="ar"?"اختر منطقتك":"Choose your area")+'</option>'+
+    list.map(function(a){return '<option value="'+esc(a)+'">'+esc(a)+'</option>'}).join("")+
+    '<option value="__other">'+(lang==="ar"?"مكان آخر ضمن ٧ كم":"Somewhere else within 7 km")+'</option>';
+  sel.value=keep;
+  if(sel.value!==keep)sel.value="";     // a saved area that no longer exists
+  wantDistrict="";
+  keep=sel.value;
+  $("fld_district").hidden=false;
+  var inCommunity=keep&&keep!=="__other";
+  $("fld_unit").hidden=!inCommunity;
+  $("fld_area").hidden=!!inCommunity;
+  var built=areaText();
+  $("addrhint").innerHTML=built?(lang==="ar"?"سيصل إلينا: ":"We will read this as: ")+"<b>"+esc(built)+"</b>":"";
+}
+/* Whatever shape the form is in, this is the one answer to "where do we go". */
+function areaText(){
+  var list=areaList();
+  if(!list.length)return $("c_area").value.trim();
+  var d=$("c_district").value;
+  if(!d||d==="__other")return $("c_area").value.trim();
+  var c=$("c_cluster").value.trim(), v=$("c_villa").value.trim(), out=d;
+  if(c)out+=", "+(lang==="ar"?"مجمع ":"Cluster ")+c;
+  if(v)out+=", "+(lang==="ar"?"فيلا ":"Villa ")+v;
+  var cn=communityName();
+  if(cn)out+=" — "+cn;
+  return out;
+}
+
 function save(){try{localStorage.setItem("mas_cart",JSON.stringify(cart));
-  localStorage.setItem("mas_who",JSON.stringify({n:$("c_name").value,a:$("c_area").value,p:$("c_phone").value}))}catch(e){}}
+  localStorage.setItem("mas_who",JSON.stringify({n:$("c_name").value,a:$("c_area").value,
+    p:$("c_phone").value,d:$("c_district").value,c:$("c_cluster").value,v:$("c_villa").value}))}catch(e){}}
 function load(){try{cart=JSON.parse(localStorage.getItem("mas_cart")||"{}")||{};
   var w=JSON.parse(localStorage.getItem("mas_who")||"{}");
-  if(w.n)$("c_name").value=w.n;if(w.a)$("c_area").value=w.a;if(w.p)$("c_phone").value=w.p}catch(e){cart={}}}
+  if(w.n)$("c_name").value=w.n;if(w.a)$("c_area").value=w.a;if(w.p)$("c_phone").value=w.p;
+  if(w.d)wantDistrict=w.d;
+  if(w.c)$("c_cluster").value=w.c;if(w.v)$("c_villa").value=w.v}catch(e){cart={}}}
 
 function applyLang(){
   document.body.dir=lang==="ar"?"rtl":"ltr";
@@ -635,6 +719,11 @@ function applyLang(){
   $("l_area").textContent=t().area;$("l_note").textContent=t().note;
   $("l_tot").textContent=t().tot;$("l_send").textContent=t().send;$("l_hint").textContent=t().hint;
   $("c_area").placeholder=t().placeholder;$("open").textContent=t().view;
+  $("l_district").textContent=t().area;
+  $("l_area").textContent=lang==="ar"?"المبنى أو الشارع":"Building or street";
+  $("l_cluster").textContent=lang==="ar"?"المجمع":"Cluster";
+  $("l_villa").textContent=lang==="ar"?"الفيلا / الوحدة":"Villa / unit";
+  drawAddress();
   $("l_phone").textContent=lang==="ar"?"رقم هاتفك":"Your phone";
   setDelBar(inRange===true?"ok":inRange===false?"no":"", 
     inRange===null?delText("note"):$("delbar_txt").textContent);
@@ -1016,7 +1105,7 @@ function drawSearch(){
 /* Results you can add straight to the basket. Anything else means a customer
    who found what they wanted still has to go and find it a second time. */
 function drawSearchResults(){
-  var q=$("i_q").value.trim().toLowerCase();
+  var q=arNorm($("i_q").value.trim()).toLowerCase();
   if(!q){
     $("i_body").innerHTML='<div class="irow"><span><b>'+
       (lang==="ar"?"ابحث عن أي منتج":"Search for anything")+'</b><small>'+
@@ -1025,10 +1114,7 @@ function drawSearchResults(){
       '</small></span></div>';
     return;
   }
-  var r=ITEMS.filter(function(p){
-    return p.name.toLowerCase().indexOf(q)>-1||p.sku.indexOf(q)>-1||
-           p.cat.toLowerCase().indexOf(q)>-1;
-  }).slice(0,60);
+  var r=ITEMS.filter(function(p){ return matches(p,q) }).slice(0,60);
   if(!r.length){
     $("i_body").innerHTML='<div class="irow"><span><b>'+t().empty+'</b><small>'+t().emptyd+'</small></span></div>';
     return;
@@ -1036,7 +1122,7 @@ function drawSearchResults(){
   $("i_body").innerHTML=r.map(function(p){
     var n=cart[p.sku]||0;
     return '<div class="sres">'+tile(p,1)+
-      '<span class="ln"><b>'+esc(p.name)+'</b><span>'+money(p.price)+
+      '<span class="ln"><b>'+esc(pname(p))+'</b><span>'+money(p.price)+
       (p.weight?" · "+esc(p.weight):"")+'</span></span>'+
       (n?'<span class="step"><button data-m="'+p.sku+'">−</button><span class="q">'+n+
          '</span><button data-a="'+p.sku+'">+</button></span>'
@@ -1069,6 +1155,13 @@ function drawContact(){
   }
   h+='<div class="irow">'+iconSvg(I.truck)+'<span><b>'+esc(delText("note"))+'</b>'+
      '<small>'+esc(delText("outsideNote"))+'</small></span></div>';
+  var areas=areaList();
+  if(areas.length){
+    h+='<div class="irow">'+iconSvg(I.pin,'<circle cx="12" cy="10" r="2.6"/>')+
+       '<span><b>'+(lang==="ar"?"نوصّل إلى":"We deliver to")+
+       (communityName()?" "+esc(communityName()):"")+'</b><small>'+
+       esc(areas.join(" · "))+'</small></span></div>';
+  }
 
   h+='<h4>'+(lang==="ar"?"اتصل بنا":"Reach us")+'</h4>';
   if(c.phone){
@@ -1099,7 +1192,7 @@ function drawContact(){
 function drawMe(){
   $("i_title").textContent=lang==="ar"?"بياناتي":"My details";
   $("i_title").dataset.kind="me";
-  var n=$("c_name").value.trim(), a=$("c_area").value.trim();
+  var n=$("c_name").value.trim(), a=areaText();
   var ph=$("c_phone")?$("c_phone").value.trim():"";
   var cnt=lines().reduce(function(x,l){return x+l.q},0);
   var h="";
@@ -1136,12 +1229,16 @@ function drawMe(){
   $("i_body").innerHTML=h;
   $("i_forget").onclick=function(){
     $("c_name").value="";$("c_area").value="";
+    $("c_district").value="";$("c_cluster").value="";$("c_villa").value="";
     if($("c_phone"))$("c_phone").value="";
+    drawAddress();
     try{ localStorage.removeItem("mas_who") }catch(e){}
     save();drawCart();drawMe();
   };
 }
-["c_name","c_phone","c_area","c_note"].forEach(function(id){$(id).oninput=function(){save();$("send").href=waLink()}});
+["c_name","c_phone","c_area","c_note","c_cluster","c_villa"].forEach(function(id){
+  $(id).oninput=function(){save();drawAddress();$("send").href=waLink()}});
+$("c_district").onchange=function(){save();drawAddress();$("send").href=waLink()};
 /* Record the order before WhatsApp opens, so you get a sales history and a
    customer list. If the recorder is unreachable the order still goes through —
    reaching you always matters more than the bookkeeping. */
@@ -1153,7 +1250,7 @@ function recordOrder(){
   var L=lines();if(!L.length)return;
   var body={
     name:$("c_name").value.trim(), phone:SHOP.askPhone?($("c_phone")?$("c_phone").value.trim():""):"",
-    area:$("c_area").value.trim(), note:$("c_note").value.trim(),
+    area:areaText(), note:$("c_note").value.trim(),
     source:inRange===true?"web-in-range":inRange===false?"web-out-of-range":"web",
     items:L.map(function(l){return {sku:l.p.sku,name:l.p.name,qty:l.q,price:l.p.price}})
   };
