@@ -221,6 +221,8 @@ body[dir="rtl"] .isearch svg{left:auto;right:1.75rem}
 .irow:last-child{border-bottom:none}
 .irow svg{width:19px;height:19px;flex:none;fill:none;stroke:var(--faint);stroke-width:1.7;
  stroke-linecap:round;stroke-linejoin:round}
+.irow svg.gi{fill:var(--faint);stroke:none}
+.irow--go svg.gi{fill:var(--saffron)}
 .irow b{font-weight:500;display:block}
 .irow small{display:block;color:var(--faint);font-size:.74rem;margin-top:1px}
 .irow--go b{color:var(--saffron)}
@@ -251,6 +253,13 @@ body[dir="rtl"] .isearch svg{left:auto;right:1.75rem}
 .fact--link:hover{background:var(--saffron-soft)}
 .fact b{font-weight:600;color:var(--ink)}
 .fact .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.hero__soc{display:inline-flex;gap:.35rem;flex-wrap:wrap}
+.hero__soc:empty{display:none}
+.hsoc{display:inline-flex;align-items:center;gap:.32rem;font-size:.78rem;font-weight:500;
+ text-decoration:none;color:var(--ink2);background:var(--sunk);border-radius:999px;
+ padding:.22rem .62rem;transition:background .15s,color .15s}
+.hsoc:hover{background:var(--saffron-soft);color:var(--saffron)}
+.hsoc svg{width:14px;height:14px;fill:currentColor;flex:none}
 .fact .dot--on{background:var(--pistachio)}
 .fact .dot--off{background:var(--berry)}
 
@@ -322,6 +331,7 @@ body[dir="rtl"] .isearch svg{left:auto;right:1.75rem}
       <span class="fact" id="fact_hours"></span>
       <span class="fact" id="fact_where"></span>
       <a class="fact fact--link" id="fact_map" href="#" target="_blank" rel="noopener"></a>
+      <span class="hero__soc" id="hero_soc"></span>
     </div>
   </div>
 </section>
@@ -766,6 +776,7 @@ function hoursLabel(){
 function drawHero(){
   var about=lang==="ar"?(SHOP.aboutAr||SHOP.about||""):(SHOP.about||"");
   $("hero_about").textContent=about;
+  drawHeroLinks();
   var loc=shopLoc(), open=hoursOpenNow();
   var dot=open===null?"":'<span class="dot '+(open?"dot--on":"dot--off")+'"></span>';
   var word=open===null?"":(open?(lang==="ar"?"مفتوح الآن":"Open now")
@@ -777,6 +788,15 @@ function drawHero(){
   $("fact_map").href=loc.mapUrl||"#";
   $("fact_map").textContent=lang==="ar"?"الخريطة ↗":"Map ↗";
 }
+
+/* One list, three places: the strip at the top, the footer, and the Contact
+   panel. Add a link once and it appears in all of them. */
+var SOCIALS=[
+  {key:"googleReview",     img:"assets/qr-google-review.png", icon:"star",   en:"Rate us on Google", ar:"قيّمنا على جوجل"},
+  {key:"instagram",        img:"",                            icon:"camera", en:"Instagram",         ar:"إنستغرام"},
+  {key:"tiktok",           img:"assets/qr-tiktok.png",        icon:"note",   en:"TikTok",            ar:"تيك توك"},
+  {key:"whatsappCommunity",img:"assets/qr-whatsapp.png",      icon:"chat",   en:"WhatsApp channel",  ar:"قناة واتساب"}
+];
 
 function drawFooter(){
   var loc=shopLoc(), L=SHOP.links||{};
@@ -811,14 +831,8 @@ function drawFooter(){
      the phone they are already holding. So: a real link becomes a button with
      an icon, and the QR image is kept only for the ones with no link yet,
      where scanning from a screen is still the only way through. */
-  var links=[
-    {key:"googleReview",     img:"assets/qr-google-review.png", icon:"star",   en:"Rate us on Google", ar:"قيّمنا على جوجل"},
-    {key:"instagram",        img:"",                            icon:"camera", en:"Instagram",         ar:"إنستغرام"},
-    {key:"tiktok",           img:"assets/qr-tiktok.png",        icon:"note",   en:"TikTok",            ar:"تيك توك"},
-    {key:"whatsappCommunity",img:"assets/qr-whatsapp.png",      icon:"chat",   en:"WhatsApp channel",  ar:"قناة واتساب"}
-  ];
   var pills=[], codes=[];
-  links.forEach(function(q){
+  SOCIALS.forEach(function(q){
     var label=lang==="ar"?q.ar:q.en, url=L[q.key];
     if(url){
       pills.push('<a class="soc" href="'+esc(url)+'" target="_blank" rel="noopener">'+
@@ -834,6 +848,19 @@ function drawFooter(){
   $("qrs").hidden=!codes.length;
 }
 
+/* The same links as the footer, but up here where people actually are. Each one
+   appears ONLY when it has been filled in — an empty field shows nothing at all,
+   never a dead button. */
+function drawHeroLinks(){
+  var L=SHOP.links||{}, out=[];
+  SOCIALS.forEach(function(q){
+    var url=L[q.key]; if(!url)return;
+    out.push('<a class="hsoc" href="'+esc(url)+'" target="_blank" rel="noopener">'+
+             icon(q.icon)+'<span>'+esc(lang==="ar"?q.ar:q.en)+'</span></a>');
+  });
+  $("hero_soc").innerHTML=out.join("");
+}
+
 /* Plain shapes, not company logos: a star for reviews, a camera for Instagram,
    a note for TikTok, a speech bubble for the WhatsApp channel. */
 function icon(name){
@@ -843,7 +870,7 @@ function icon(name){
     note:"M10 18.2a2.8 2.8 0 112.8-2.8V4h2.6a4.2 4.2 0 004.2 4.2v2.6a6.8 6.8 0 01-4.2-1.5v6.1A5.4 5.4 0 1110 10.2v2.7a2.8 2.8 0 000 5.3z",
     chat:"M12 3.6c4.7 0 8.4 3.2 8.4 7.2s-3.7 7.2-8.4 7.2a9.9 9.9 0 01-2.6-.35L4.8 19.6l.9-3.4A6.9 6.9 0 013.6 10.8c0-4 3.7-7.2 8.4-7.2z"
   }[name]||"";
-  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>';
+  return '<svg class="gi" viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>';
 }
 
 var hopped=false;
@@ -1054,12 +1081,10 @@ function drawContact(){
        '<span><b>'+esc(c.email)+'</b><small>'+(lang==="ar"?"راسلنا":"Email us")+'</small></span></a>';
   }
   var L=SHOP.links||{};
-  [["googleReview",lang==="ar"?"قيّمنا على جوجل":"Rate us on Google"],
-   ["instagram","Instagram"],["tiktok","TikTok"],
-   ["whatsappCommunity",lang==="ar"?"قناة واتساب":"WhatsApp channel"]
-  ].forEach(function(x){
-    if(L[x[0]])h+='<a class="irow irow--go" href="'+esc(L[x[0]])+'" target="_blank" rel="noopener">'+
-      iconSvg(I.chat)+'<span><b>'+esc(x[1])+'</b></span></a>';
+  SOCIALS.forEach(function(q){
+    if(!L[q.key])return;
+    h+='<a class="irow irow--go" href="'+esc(L[q.key])+'" target="_blank" rel="noopener">'+
+       icon(q.icon)+'<span><b>'+esc(lang==="ar"?q.ar:q.en)+'</b></span></a>';
   });
   if(num){
     h+='<a class="wa" href="https://wa.me/'+num+'" target="_blank" rel="noopener">'+
