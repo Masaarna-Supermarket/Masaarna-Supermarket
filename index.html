@@ -183,6 +183,13 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
 .foot__small{font-size:.78rem}
 .foot__link{display:inline-block;color:var(--saffron);text-decoration:none;font-size:.86rem;font-weight:500;margin:.25rem 0}
 .foot__link:hover{text-decoration:underline}
+.socs{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.7rem}
+.soc{display:inline-flex;align-items:center;gap:.42rem;text-decoration:none;
+ padding:.44rem .78rem;border:1px solid var(--line);border-radius:99px;
+ background:var(--card);color:var(--ink);font-size:.8rem;font-weight:500;
+ transition:border-color .15s,color .15s,transform .15s}
+.soc:hover{border-color:var(--saffron);color:var(--saffron);transform:translateY(-1px)}
+.soc svg{width:16px;height:16px;fill:currentColor;flex:none}
 .qrs{display:flex;gap:.7rem;flex-wrap:wrap;margin-top:.7rem}
 .qr{text-align:center;text-decoration:none;color:inherit}
 .qr img{width:78px;height:78px;border-radius:8px;background:#fff;padding:3px;border:1px solid var(--line);display:block}
@@ -267,7 +274,8 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
     <div class="foot__col">
       <h3 id="f_order">Order &amp; follow</h3>
       <a id="f_wa" href="#" target="_blank" rel="noopener" class="foot__link">Order on WhatsApp →</a>
-      <div class="qrs" id="qrs"></div>
+      <div class="socs" id="socs" hidden></div>
+      <div class="qrs" id="qrs" hidden></div>
     </div>
   </div>
   <div class="foot__base">
@@ -561,22 +569,52 @@ function checkDistance(){
 /* Opening hours. Times are plain "HH:MM" strings; a closing time earlier than
    the opening time means it runs past midnight, which is how a grocery actually
    trades — 10:00 to 00:00 is fourteen hours, not minus ten. */
+/* People type "10:00", "10:00 AM", "10 pm", "22:00" — all of them mean
+   something, so all of them are understood. Returns minutes past midnight,
+   or null when it is not a time at all. */
+function parseTime(t){
+  if(t==null)return null;
+  var s=String(t).trim().toLowerCase().replace(/[\u200e\u200f]/g,"");
+  if(!s)return null;
+  var pm=/p\.?m\.?/.test(s), am=/a\.?m\.?/.test(s);
+  var m=s.match(/(\d{1,2})\s*[:.]?\s*(\d{2})?/);
+  if(!m)return null;
+  var h=parseInt(m[1],10), mi=m[2]?parseInt(m[2],10):0;
+  if(isNaN(h)||isNaN(mi)||mi>59)return null;
+  if(am||pm){
+    if(h>12)return null;
+    // "00:00 AM" is not real 12-hour notation, but a clock that says it means
+    // midnight, and that is what people type. Hour 0 is taken at face value.
+    if(h>0){
+      if(pm&&h!==12)h+=12;
+      if(am&&h===12)h=0;            // 12 AM is midnight
+    }
+  } else if(h>23){ return null }
+  return h*60+mi;
+}
 function hoursOpenNow(){
   var c=SHOP.contact||{};
-  if(!c.hoursFrom||!c.hoursTo)return null;
-  function mins(t){var p=String(t).split(":");return (+p[0])*60+(+(p[1]||0))}
+  var a=parseTime(c.hoursFrom), b=parseTime(c.hoursTo);
+  if(a===null||b===null)return null;
   var now=new Date(), n=now.getHours()*60+now.getMinutes();
-  var a=mins(c.hoursFrom), b=mins(c.hoursTo);
   if(b===0)b=1440;                 // midnight written as 00:00
-  if(b<=a)return n>=a||n<b;        // wraps past midnight
+  if(b===a)return true;            // open around the clock
+  if(b<a)return n>=a||n<b;         // wraps past midnight
   return n>=a&&n<b;
+}
+/* Always shown as HH:MM, whatever was typed, so the footer never reads "00:00 AM". */
+function fmtTime(t){
+  var m=parseTime(t); if(m===null)return String(t||"");
+  var h=Math.floor(m/60), mi=m%60;
+  return (h<10?"0":"")+h+":"+(mi<10?"0":"")+mi;
 }
 function hoursLabel(){
   var c=SHOP.contact||{};
-  if(!c.hoursFrom)return "";
-  var to=c.hoursTo==="00:00"?(lang==="ar"?"منتصف الليل":"midnight"):c.hoursTo;
+  var a=parseTime(c.hoursFrom); if(a===null)return "";
+  var b=parseTime(c.hoursTo);
+  var to=(b===0||b===1440)?(lang==="ar"?"منتصف الليل":"midnight"):fmtTime(c.hoursTo);
   var every=lang==="ar"?(c.hoursNoteAr||""):(c.hoursNote||"");
-  return (every?every+" · ":"")+c.hoursFrom+" – "+to;
+  return (every?every+" · ":"")+fmtTime(c.hoursFrom)+" – "+to;
 }
 
 function drawHero(){
@@ -623,20 +661,43 @@ function drawFooter(){
   $("f_wa").href=num?"https://wa.me/"+num:"#";
   $("f_wa").textContent=(lang==="ar"?"اطلب عبر واتساب":"Order on WhatsApp")+" →";
 
-  /* A QR is only worth showing when we have no real link for it. Where the
-     shop has pasted the actual URL, the image becomes a normal tappable link
-     — nobody scans a QR code off the phone they are already holding. */
-  var qrs=[
-    {img:"assets/qr-google-review.png",url:L.googleReview,en:"Google review",ar:"قيّمنا على جوجل"},
-    {img:"assets/qr-tiktok.png",url:L.tiktok,en:"TikTok",ar:"تيك توك"},
-    {img:"assets/qr-whatsapp.png",url:L.whatsappCommunity,en:"WhatsApp channel",ar:"قناة واتساب"}
+  /* A link you can tap beats a QR code every time — nobody scans a code off
+     the phone they are already holding. So: a real link becomes a button with
+     an icon, and the QR image is kept only for the ones with no link yet,
+     where scanning from a screen is still the only way through. */
+  var links=[
+    {key:"googleReview",     img:"assets/qr-google-review.png", icon:"star",   en:"Rate us on Google", ar:"قيّمنا على جوجل"},
+    {key:"instagram",        img:"",                            icon:"camera", en:"Instagram",         ar:"إنستغرام"},
+    {key:"tiktok",           img:"assets/qr-tiktok.png",        icon:"note",   en:"TikTok",            ar:"تيك توك"},
+    {key:"whatsappCommunity",img:"assets/qr-whatsapp.png",      icon:"chat",   en:"WhatsApp channel",  ar:"قناة واتساب"}
   ];
-  $("qrs").innerHTML=qrs.map(function(q){
-    var label=lang==="ar"?q.ar:q.en;
-    var open=q.url?' href="'+esc(q.url)+'" target="_blank" rel="noopener"':' href="#" onclick="return false"';
-    return '<a class="qr"'+open+'><img src="'+q.img+'" alt="'+esc(label)+'" loading="lazy">'+
-           '<span>'+esc(label)+'</span></a>';
-  }).join("");
+  var pills=[], codes=[];
+  links.forEach(function(q){
+    var label=lang==="ar"?q.ar:q.en, url=L[q.key];
+    if(url){
+      pills.push('<a class="soc" href="'+esc(url)+'" target="_blank" rel="noopener">'+
+                 icon(q.icon)+'<span>'+esc(label)+'</span></a>');
+    } else if(q.img){
+      codes.push('<span class="qr"><img src="'+q.img+'" alt="'+esc(label)+'" loading="lazy">'+
+                 '<span>'+esc(label)+'</span></span>');
+    }
+  });
+  $("socs").innerHTML=pills.join("");
+  $("socs").hidden=!pills.length;
+  $("qrs").innerHTML=codes.join("");
+  $("qrs").hidden=!codes.length;
+}
+
+/* Plain shapes, not company logos: a star for reviews, a camera for Instagram,
+   a note for TikTok, a speech bubble for the WhatsApp channel. */
+function icon(name){
+  var d={
+    star:"M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z",
+    camera:"M4 8h3l1.2-2h7.6L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1zm8 3.2a3.3 3.3 0 100 6.6 3.3 3.3 0 000-6.6z",
+    note:"M10 18.2a2.8 2.8 0 112.8-2.8V4h2.6a4.2 4.2 0 004.2 4.2v2.6a6.8 6.8 0 01-4.2-1.5v6.1A5.4 5.4 0 1110 10.2v2.7a2.8 2.8 0 000 5.3z",
+    chat:"M12 3.6c4.7 0 8.4 3.2 8.4 7.2s-3.7 7.2-8.4 7.2a9.9 9.9 0 01-2.6-.35L4.8 19.6l.9-3.4A6.9 6.9 0 013.6 10.8c0-4 3.7-7.2 8.4-7.2z"
+  }[name]||"";
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>';
 }
 
 function boot(data){

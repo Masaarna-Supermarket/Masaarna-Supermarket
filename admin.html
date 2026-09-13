@@ -113,9 +113,14 @@ summary:hover{color:var(--saffron)}
 .fld--bad input{border-color:#b91c1c}
 .vrow{display:flex;align-items:center;gap:.5rem;padding:.32rem 0;border-bottom:1px solid var(--line);font-size:.78rem}
 .vrow:last-child{border-bottom:0}
-.vrow b{font-variant-numeric:tabular-nums;min-width:3.4rem}
-.vrow time{color:var(--faint);font-size:.74rem;min-width:9.5rem}
-.vrow span{color:var(--ink2);flex:1}
+.vrow b{font-variant-numeric:tabular-nums;min-width:3.4rem;flex:none}
+.vrow time{color:var(--faint);font-size:.74rem;min-width:9.5rem;flex:none}
+/* the badge sizes to its word; the label takes the room; the note sits at the end */
+.vrow>.pill{flex:none;min-width:3.2rem;text-align:center}
+.vrow>.vlbl{color:var(--ink2);flex:1}
+.vrow>.vdet{color:var(--faint);font-size:.74rem;flex:none;text-align:right}
+.vrow>button{flex:none}
+.vrow span{color:var(--ink2)}
 </style>
 <script src="config.js"></script>
 </head>
@@ -165,6 +170,20 @@ summary:hover{color:var(--saffron)}
   </div>
 
   <div class="tools">
+    <h3>Can anyone else change my shop?</h3>
+    <p class="hint" style="margin:-.2rem 0 .2rem">
+      This knocks on every door of your server the way a stranger would — with no key,
+      and with a wrong key — and reports what it finds. It changes nothing: with no key
+      accepted, nothing it sends can be saved.
+    </p>
+    <div class="row">
+      <button class="btn btn--go" id="sectest">Run the security check</button>
+      <span class="msg msg--inf" id="secmsg"></span>
+    </div>
+    <div id="seclist" style="margin-top:.5rem"></div>
+  </div>
+
+  <div class="tools">
     <h3>Shop details <small style="font-weight:400;color:var(--faint)">— what customers see at the top and bottom of the shop</small></h3>
     <div class="flds">
       <label class="fld"><span>Shop name</span><input class="inp" id="s_name"></label>
@@ -172,8 +191,8 @@ summary:hover{color:var(--saffron)}
       <label class="fld" id="wafld"><span>WhatsApp number — digits only</span><input class="inp" id="s_wa" inputmode="numeric" placeholder="9715XXXXXXXX"></label>
       <label class="fld"><span>Phone to show</span><input class="inp" id="s_phone" placeholder="+971 6 715 8201"></label>
       <label class="fld"><span>Email</span><input class="inp" id="s_email" type="email"></label>
-      <label class="fld"><span>Opens</span><input class="inp" id="s_hfrom" placeholder="10:00"></label>
-      <label class="fld"><span>Closes</span><input class="inp" id="s_hto" placeholder="00:00"></label>
+      <label class="fld"><span>Opens</span><select class="inp" id="s_hfrom"></select></label>
+      <label class="fld"><span>Closes</span><select class="inp" id="s_hto"></select></label>
       <label class="fld"><span>Delivery radius in km</span><input class="inp" id="s_radius" type="number" min="1" max="50" step="1"></label>
       <label class="fld"><span>Area name</span><input class="inp" id="s_area"></label>
       <label class="fld"><span>Area name in Arabic</span><input class="inp" id="s_areaAr" dir="rtl"></label>
@@ -181,6 +200,7 @@ summary:hover{color:var(--saffron)}
       <label class="fld"><span>Google review link</span><input class="inp" id="s_rev"></label>
       <label class="fld"><span>TikTok link</span><input class="inp" id="s_tik"></label>
       <label class="fld"><span>WhatsApp channel link</span><input class="inp" id="s_wac"></label>
+      <label class="fld"><span>Instagram link</span><input class="inp" id="s_ig" placeholder="https://instagram.com/..."></label>
     </div>
     <p class="hint" id="wahint" style="margin:.5rem 0 0"></p>
   </div>
@@ -704,8 +724,48 @@ var SHOPF=[
   ["s_area",   ["location","areaName"]],["s_areaAr",["location","areaNameAr"]],
   ["s_map",    ["location","mapUrl"]],
   ["s_rev",    ["links","googleReview"]],["s_tik",  ["links","tiktok"]],
-  ["s_wac",    ["links","whatsappCommunity"]]
+  ["s_wac",    ["links","whatsappCommunity"]],
+  ["s_ig",     ["links","instagram"]]
 ];
+
+/* Times are chosen from a list, so "10:00 AM" and "00:00 AM" can no longer be
+   typed in. Anything already saved in another shape is understood and snapped
+   onto the list; an odd time like 10:15 keeps its own entry rather than being
+   silently lost. */
+function normTime(t){
+  if(t==null)return "";
+  var v=String(t).trim().toLowerCase().replace(/[\u200e\u200f]/g,"");
+  if(!v)return "";
+  var pm=/p\.?m\.?/.test(v), am=/a\.?m\.?/.test(v);
+  var m=v.match(/(\d{1,2})\s*[:.]?\s*(\d{2})?/);
+  if(!m)return "";
+  var h=parseInt(m[1],10), mi=m[2]?parseInt(m[2],10):0;
+  if(isNaN(h)||isNaN(mi)||mi>59)return "";
+  if(am||pm){
+    if(h>12)return "";
+    // "00:00 AM" is not real 12-hour notation but plainly means midnight.
+    if(h>0){ if(pm&&h!==12)h+=12; if(am&&h===12)h=0 }
+  } else if(h>23)return "";
+  return (h<10?"0":"")+h+":"+(mi<10?"0":"")+mi;
+}
+function timeLabel(v){
+  var p=v.split(":"), h=+p[0], mi=p[1];
+  if(v==="00:00")return "12:00 AM (midnight)";
+  if(v==="12:00")return "12:00 PM (noon)";
+  var suffix=h<12?"AM":"PM", h12=h%12; if(h12===0)h12=12;
+  return h12+":"+mi+" "+suffix;
+}
+function fillTimes(id,current){
+  var sel=$(id), opts=[], v;
+  for(var h=0;h<24;h++)for(var m=0;m<60;m+=30){
+    v=(h<10?"0":"")+h+":"+(m<10?"0":"")+m;
+    opts.push(v);
+  }
+  if(current&&opts.indexOf(current)<0)opts.unshift(current);
+  sel.innerHTML='<option value="">- not set -</option>'+
+    opts.map(function(x){return '<option value="'+x+'">'+timeLabel(x)+'</option>'}).join("");
+  sel.value=current||"";
+}
 function dig(o,path,make){
   for(var i=0;i<path.length-1;i++){
     if(o[path[i]]==null||typeof o[path[i]]!=="object"){ if(!make)return null; o[path[i]]={} }
@@ -716,9 +776,13 @@ function dig(o,path,make){
 function fillShop(){
   var sh=DOC.shop=DOC.shop||{};
   SHOPF.forEach(function(f){
+    if(f[0]==="s_hfrom"||f[0]==="s_hto")return;   // filled below
     var parent=dig(sh,f[1],false), k=f[1][f[1].length-1];
     $(f[0]).value=parent&&parent[k]!=null?parent[k]:"";
   });
+  var c=sh.contact||{};
+  fillTimes("s_hfrom", normTime(c.hoursFrom));
+  fillTimes("s_hto",   normTime(c.hoursTo));
   checkWa();
 }
 function readShop(){
@@ -726,6 +790,7 @@ function readShop(){
   SHOPF.forEach(function(f){
     var parent=dig(sh,f[1],true), k=f[1][f[1].length-1], v=$(f[0]).value.trim();
     if(f[0]==="s_wa")      v=v.replace(/[^0-9]/g,"");
+    if(f[0]==="s_hfrom"||f[0]==="s_hto") v=normTime(v);
     if(f[0]==="s_radius")  v=Math.max(1,Math.min(50,parseFloat(v)||7));
     parent[k]=v;
   });
@@ -747,11 +812,95 @@ function checkWa(){
         "a landline usually has no WhatsApp, so this normally needs to be the mobile you answer.";
 }
 $("s_wa").oninput=function(){checkWa();setDirty(true)};
-SHOPF.forEach(function(f){ if(f[0]!=="s_wa") $(f[0]).oninput=function(){setDirty(true)} });
+SHOPF.forEach(function(f){
+  if(f[0]==="s_wa")return;
+  var el=$(f[0]);
+  if(el.tagName==="SELECT") el.onchange=function(){setDirty(true)};
+  else el.oninput=function(){setDirty(true)};
+});
 
 /* ── connection ─────────────────────────────────────── */
 function cmsg(t,k){ $("cmsg").className="msg msg--"+(k||"inf"); $("cmsg").innerHTML=t }
 function akey(){ return $("okey").value.trim() }
+
+/* ── the security check ─────────────────────────────
+   The honest way to answer "can someone else get at my data" is to try it.
+   Every request below is sent the way a stranger would send it: no key, or a
+   key that is wrong. A 401 back is the lock working. */
+function secmsg(t,k){ $("secmsg").className="msg msg--"+(k||"inf"); $("secmsg").innerHTML=t }
+
+$("sectest").onclick=function(){
+  var api=oapi();
+  if(!api)return secmsg("Put your shop address in the box above first.","bad");
+  var WRONG={"X-Admin-Key":"this-is-deliberately-the-wrong-key"};
+
+  var checks=[
+    {t:"Your product list is readable by customers",       open:true,
+     go:function(){ return fetch(api+"/catalog",{cache:"no-store"}) }},
+    {t:"A stranger cannot change your prices",
+     go:function(){ return fetch(api+"/catalog",{method:"PUT",body:"{}"}) }},
+    {t:"A wrong key cannot change your prices",
+     go:function(){ return fetch(api+"/catalog",{method:"PUT",headers:WRONG,body:"{}"}) }},
+    {t:"A stranger cannot read your customer list",
+     go:function(){ return fetch(api+"/orders") }},
+    {t:"A stranger cannot download your orders as Excel",
+     go:function(){ return fetch(api+"/orders.csv") }},
+    {t:"A stranger cannot download your whole catalog",
+     go:function(){ return fetch(api+"/catalog/backup.json") }},
+    {t:"A stranger cannot roll your shop back",
+     go:function(){ return fetch(api+"/catalog/restore",{method:"POST",body:'{"version":1}'}) }},
+    {t:"A stranger cannot see your past publishes",
+     go:function(){ return fetch(api+"/catalog/versions") }}
+  ];
+
+  $("sectest").disabled=true;
+  secmsg("Checking…","inf");
+  $("seclist").innerHTML="";
+
+  var rows=[], bad=0;
+  function row(ok,label,detail){
+    rows.push('<div class="vrow"><span class="pill '+(ok?"p-ok":"p-bad")+'">'+
+      (ok?"safe":"OPEN")+'</span><span class="vlbl">'+esc(label)+'</span>'+
+      (detail?'<span class="vdet">'+esc(detail)+'</span>':'')+'</div>');
+    $("seclist").innerHTML=rows.join("");
+  }
+
+  // Does the server have a key at all? Without one you cannot publish.
+  fetch(api+"/health",{cache:"no-store"}).then(function(r){return r.json()}).then(function(h){
+    if(h.adminKeySet===false){
+      row(false,"Your server has no admin key set",
+        "run: npx wrangler secret put ADMIN_KEY");
+      bad++;
+    } else if(h.adminKeySet===true){
+      row(true,"Your server has an admin key set","only that key can change anything");
+    }
+  }).catch(function(){}).then(function(){
+    var i=0;
+    (function next(){
+      if(i>=checks.length){
+        $("sectest").disabled=false;
+        if(bad===0){
+          secmsg("<strong>All clear.</strong> Nobody without your key can change your prices "+
+                 "or see a single customer.","ok");
+        } else {
+          secmsg("<strong>"+bad+" problem(s) found.</strong> The rows marked OPEN need fixing — "+
+                 "send them to whoever set this up.","bad");
+        }
+        return;
+      }
+      var c=checks[i++];
+      c.go().then(function(r){
+        var ok = c.open ? (r.status===200||r.status===404) : (r.status===401);
+        if(!ok)bad++;
+        row(ok, c.t, c.open ? (r.status===404?"nothing published yet":"as it should be")
+                            : ("server answered "+r.status));
+        next();
+      }).catch(function(e){
+        bad++; row(false, c.t, "could not reach the server"); next();
+      });
+    })();
+  });
+};
 
 /* ── publish ────────────────────────────────────────── */
 /* Category counts must match what is actually on the shop, so they are rebuilt
@@ -819,7 +968,7 @@ function loadVersions(keepMsg){
      $("vlist").innerHTML=v.length?v.map(function(x,i){
        return '<div class="vrow"><b>v'+x.version+'</b>'+
          '<time>'+esc(x.updated_at||"")+'</time>'+
-         '<span>'+Math.round((x.bytes||0)/1024)+' KB'+(x.note?" · "+esc(x.note):"")+'</span>'+
+         '<span class="vlbl">'+Math.round((x.bytes||0)/1024)+' KB'+(x.note?" · "+esc(x.note):"")+'</span>'+
          (i===0?'<span class="pill p-ok">live</span>'
                :'<button class="btn" data-restore="'+x.version+'">Go back to this</button>')+
          '</div>';
