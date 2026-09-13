@@ -141,7 +141,13 @@ summary:hover{color:var(--saffron)}
 .unsaved[hidden]{display:none}
 .unsaved__t{flex:1;min-width:11rem;font-size:.88rem;line-height:1.35}
 .unsaved__t b{color:var(--saffron)}
-.unsaved .btn{background:var(--card);border-color:transparent}
+/* The bar is dark, and .btn inherits its colour — which made white text on a
+   white button. Both the ink and the paper are stated here, for both buttons. */
+.unsaved .btn{background:#fff;color:#1d1a17;border:1px solid #fff;font-weight:600}
+.unsaved .btn:hover{background:#f1ece4;color:#1d1a17;border-color:#f1ece4}
+.unsaved .btn--go{background:var(--saffron);color:#fff;border-color:var(--saffron)}
+.unsaved .btn--go:hover{background:#a8620f;color:#fff;border-color:#a8620f}
+.unsaved__t{color:#fff}
 body.hasunsaved{padding-bottom:5rem}
 /* The manager on a phone. Price and stock are the two things anyone actually
    edits away from a desk, so those stay; the photo and the photo link — which
@@ -426,13 +432,14 @@ body.hasunsaved{padding-bottom:5rem}
     </p>
     <div class="row">
       <button class="btn btn--go" id="oload">Load orders</button>
+      <button class="btn" id="osample">Add 3 sample orders</button>
       <button class="btn" id="oxl">Download orders for Excel</button>
       <span class="msg msg--inf" id="omsg"></span>
     </div>
     <div class="tw" style="max-height:40vh;margin-top:.6rem" id="owrap" hidden>
       <table>
         <thead><tr><th>Order</th><th>When</th><th>Customer</th><th>Phone</th><th>Area</th>
-          <th>Items</th><th>Total</th><th>Status</th><th>Stock</th></tr></thead>
+          <th>Items</th><th>Total</th><th>Status</th><th>Stock</th><th></th></tr></thead>
         <tbody id="orows"></tbody>
       </table>
     </div>
@@ -497,6 +504,9 @@ var AR={
   "Add to stock":"أضف للمخزون","Move to category":"انقل إلى قسم","Put on offer, % off":"ضع عرضاً، خصم %",
   "Apply":"تطبيق","Photos":"الصور","Remember key":"احفظ المفتاح",
   "Orders":"الطلبات","Load orders":"حمّل الطلبات","Download orders for Excel":"نزّل الطلبات لإكسل",
+  "Throw these away":"تراجَع عن هذه","Add 3 sample orders":"أضف ٣ طلبات تجريبية",
+  "Remove":"احذف","Go back to this":"ارجع إلى هذه","live":"المنشور الآن",
+  "Show past publishes":"اعرض عمليات النشر السابقة",
   "New":"جديد","Confirmed on WhatsApp":"مؤكد على واتساب","Being packed":"قيد التجهيز",
   "Out for delivery":"في الطريق","Delivered":"تم التوصيل","Cancelled":"ملغي",
   "Take off stock":"اخصم من المخزون","taken off":"تم الخصم","Stock":"المخزون",
@@ -1383,15 +1393,25 @@ function loadVersions(keepMsg){
                       if(!r.ok)throw new Error("The shop answered "+r.status); return r.json() })
    .then(function(d){
      var v=d.versions||[];
-     $("vlist").innerHTML=v.length?v.map(function(x,i){
-       return '<div class="vrow"><b>v'+x.version+'</b>'+
+     /* Kilobytes told you nothing. What you need in order to choose is: which one
+        is live right now, when it was made, how many products it had, and how many
+        of them customers could see. And the newest is not always the live one —
+        after a restore, the live version IS the restore. */
+     $("vlist").innerHTML=v.length?v.map(function(x){
+       var live=!!x.live;
+       var counts=(x.products!=null)
+         ? x.products+" products · "+x.visible+" on the shop"
+         : Math.round((x.bytes||0)/1024)+" KB";
+       return '<div class="vrow"'+(live?' style="background:var(--sunk);border-radius:8px"':'')+'>'+
+         '<b>v'+x.version+'</b>'+
          '<time>'+esc(x.updated_at||"")+'</time>'+
-         '<span class="vlbl">'+Math.round((x.bytes||0)/1024)+' KB'+(x.note?" · "+esc(x.note):"")+'</span>'+
-         (i===0?'<span class="pill p-ok">live</span>'
-               :'<button class="btn" data-restore="'+x.version+'">Go back to this</button>')+
+         '<span class="vlbl">'+esc(counts)+(x.note?" · "+esc(x.note):"")+'</span>'+
+         (live?'<span class="pill p-ok">live</span>'
+              :'<button class="btn" data-restore="'+x.version+'">Go back to this</button>')+
          '</div>';
      }).join(""):'<p class="hint">Nothing published yet.</p>';
-     if(!keepMsg)vmsg(v.length+" publish(es) kept.","ok");
+     if(!keepMsg)vmsg("<strong>v"+(d.liveVersion||"?")+" is on the shop right now.</strong> "+
+       v.length+" publish(es) kept \u2014 the oldest drops off once there are more than 20.","ok");
    }).catch(function(e){ vmsg(e.message,"bad") });
 }
 function vmsg(t,k){ $("vmsg").className="msg msg--"+(k||"inf"); $("vmsg").textContent=t }
@@ -1399,7 +1419,10 @@ $("vload").onclick=function(){loadVersions(false)};
 $("vlist").onclick=function(e){
   var b=e.target.closest?e.target.closest("[data-restore]"):null; if(!b)return;
   var v=b.getAttribute("data-restore");
-  if(!confirm("Put version "+v+" back on the shop?\n\nThis is itself a publish, so you can come forward again."))return;
+  var row=null;
+  try{ row=$("vlist").querySelector('[data-restore="'+v+'"]').closest(".vrow").innerText.replace(/\s+/g," ").trim() }catch(e){}
+  if(!confirm("Put version "+v+" back on the shop?\n\n"+(row?row+"\n\n":"")+
+    "Nothing is lost: this is itself a new publish, so the version that is live now stays in the list and you can come forward again."))return;
   vmsg("Restoring…","inf");
   fetch(oapi()+"/catalog/restore",{method:"POST",
       headers:{"Content-Type":"application/json","X-Admin-Key":akey()},
@@ -1535,7 +1558,42 @@ function wireOrders(){
   Array.prototype.forEach.call($("orows").querySelectorAll("[data-stock]"),function(b){
     b.onclick=function(){ takeOffStock(b.closest("tr").dataset.ref) };
   });
+  Array.prototype.forEach.call($("orows").querySelectorAll("[data-del]"),function(b){
+    b.onclick=function(){ removeOrder(b.closest("tr").dataset.ref) };
+  });
 }
+$("osample").onclick=function(){
+  if(!oapi()||!akey())return omsg("Shop address and admin key first.","bad");
+  omsg("Making three sample orders…","inf");
+  // use real products where we have them, so the stock button has something to do
+  var items=(P||[]).filter(function(p){return p.visible&&p.price>0}).slice(0,3)
+    .map(function(p){return {sku:p.sku,name:p.name,price:p.price}});
+  fetch(oapi()+"/orders/samples",{method:"POST",
+      headers:{"Content-Type":"application/json","X-Admin-Key":akey()},
+      body:JSON.stringify({items:items})})
+   .then(function(r){ return r.json().then(function(j){ if(!r.ok)throw new Error(j.error||r.status); return j }) })
+   .then(function(j){
+     omsg("<strong>"+j.made.length+" sample orders added.</strong> Every one is named SAMPLE and "+
+          "can be removed with the button on its row.","ok");
+     $("oload").click();
+   })
+   .catch(function(e){ omsg(e.message,"bad") });
+};
+
+/* There is no other way to get rid of an order — a sample, or a nonsense one
+   somebody sent at three in the morning. Gone means gone. */
+function removeOrder(ref){
+  if(!confirm((ALANG==="ar"
+    ? "حذف الطلب "+ref+" نهائياً؟\n\nلا يمكن التراجع عن هذا."
+    : "Delete order "+ref+" for good?\n\nThis cannot be undone.")))return;
+  omsg("Removing…","inf");
+  fetch(oapi()+"/orders/"+encodeURIComponent(ref)+"/delete",{method:"POST",
+      headers:{"X-Admin-Key":akey()}})
+   .then(function(r){ return r.json().then(function(j){ if(!r.ok)throw new Error(j.error||r.status); return j }) })
+   .then(function(){ omsg(ref+" removed.","ok"); $("oload").click() })
+   .catch(function(e){ omsg(e.message,"bad") });
+}
+
 function setStatus(ref,status){
   omsg("Saving…","inf");
   fetch(oapi()+"/orders/"+encodeURIComponent(ref),{method:"POST",
@@ -1607,6 +1665,11 @@ $("oload").onclick=function(){
      var o=d.orders||[];
      $("owrap").hidden=false;
      ORDERS=o;
+     if(d.stockTableMissing){
+       omsg("<strong>Your orders are here, but the stock table is missing.</strong> "+
+            "Run <code>npx wrangler d1 execute masaarna --remote --file=schema.sql</code> "+
+            "once, and Take off stock will work too.","bad");
+     }
      $("orows").innerHTML=o.length?o.map(function(x){
        return "<tr data-ref='"+esc(x.ref)+"'><td style='font-size:.76rem'>"+esc(x.ref)+"</td>"+
          "<td style='font-size:.76rem'>"+esc(String(x.created_at||"").slice(0,16))+"</td>"+
@@ -1614,8 +1677,9 @@ $("oload").onclick=function(){
          "<td>"+esc(x.area||"")+"</td><td class='e--n'>"+(x.item_count||0)+"</td>"+
          "<td class='e--n'>AED "+Number(x.total||0).toFixed(2)+"</td>"+
          "<td>"+statusSelect(x.status||"new")+"</td>"+
-         "<td>"+stockCell(x)+"</td></tr>";
-     }).join(""):"<tr><td colspan='9' style='text-align:center;color:var(--faint);padding:1.5rem'>No orders recorded yet.</td></tr>";
+         "<td>"+stockCell(x)+"</td>"+
+         "<td><button class='btn btn--bad' data-del style='font-size:.72rem;padding:.2rem .45rem'>Remove</button></td></tr>";
+     }).join(""):"<tr><td colspan='10' style='text-align:center;color:var(--faint);padding:1.5rem'>No orders recorded yet.</td></tr>";
      wireOrders();
      var rev=o.reduce(function(s,x){return s+Number(x.total||0)},0);
      omsg(o.length+" order(s) · AED "+rev.toFixed(2)+" total","ok");
