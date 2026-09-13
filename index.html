@@ -192,6 +192,9 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
+
+<!-- The one setting you ever change by hand. See config.js. -->
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -341,8 +344,8 @@ function catLabel(k){return lang==="ar"?catAr(k):k}
 
 function tile(p,small){
   if(p.img){return '<div class="'+(small?"lt":"thumb")+'"><img src="'+esc(p.img)+'" alt="" loading="lazy" '+
-    'onerror="this.parentNode.innerHTML=\'<span class=&quot;mono&quot;>'+esc(initials(p.name))+'</span>\';'+
-    'this.parentNode.style.background=\''+tint(p.cat)+'\'">'+
+    'onerror="var d=this.parentNode;d.style.background=\''+tint(p.cat)+'\';'+
+    'd.innerHTML=\'<span class=&quot;mono&quot;>'+esc(initials(p.name))+'</span>\'">'+
     (small?"":(p.weight?'<span class="tag">'+esc(p.weight)+'</span>':"")+stockFlag(p))+'</div>'}
   return '<div class="'+(small?"lt":"thumb")+'" style="background:linear-gradient(145deg,'+tint(p.cat,6)+','+tint(p.cat,-8)+')">'+
     '<span class="mono">'+esc(initials(p.name))+'</span>'+
@@ -437,10 +440,18 @@ function drawCart(){
   if(!L.length)$("send").setAttribute("aria-disabled","true");else $("send").removeAttribute("aria-disabled");
 }
 
+/* A WhatsApp number that is still a placeholder ("9715XXXXXXXX") would have its
+   letters stripped and open a chat with "9715" — a dead link that looks fine
+   until a customer tries it. So the number is checked, not assumed. */
+function waNumber(){
+  var n=String(SHOP.whatsapp||"").replace(/[^0-9]/g,"");
+  return n.length>=9&&n.length<=15?n:"";
+}
+
 /* Builds the WhatsApp message. No API, no account — just a wa.me link. */
 function waLink(){
   var L=lines();if(!L.length)return "#";
-  var num=String(SHOP.whatsapp||"").replace(/[^\d]/g,"");
+  var num=waNumber();if(!num)return "#";
   var msg=t().hello+"\n\n";
   L.forEach(function(l){msg+="• "+l.p.name+(l.p.weight?" ("+l.p.weight+")":"")+" × "+l.q+" — "+money(l.p.price*l.q)+"\n"});
   msg+="\n"+t().total+": "+money(subtotal());
@@ -608,7 +619,7 @@ function drawFooter(){
   $("f_mail").href=c.email?"mailto:"+c.email:"#";
   $("f_mail").parentNode.hidden=!c.email;
 
-  var num=String(SHOP.whatsapp||"").replace(/[^\d]/g,"");
+  var num=waNumber();
   $("f_wa").href=num?"https://wa.me/"+num:"#";
   $("f_wa").textContent=(lang==="ar"?"اطلب عبر واتساب":"Order on WhatsApp")+" →";
 
@@ -635,6 +646,13 @@ function boot(data){
   // field at all is treated as visible, so older product files still work.
   ITEMS=all.filter(function(p){return p.visible===undefined||p.visible===1});
   if(SHOP.name)document.title=SHOP.name;
+  if(!waNumber()&&!document.getElementById("nowa")){
+    var w=document.createElement("div");w.id="nowa";
+    w.style.cssText="background:#b91c1c;color:#fff;padding:.7rem 1rem;font-size:.88rem;text-align:center;line-height:1.4";
+    w.innerHTML="<strong>The WhatsApp number is not set, so no order can be sent.</strong><br>"+
+      "Open the admin page, put the shop\u2019s WhatsApp number in Shop details, and press Publish.";
+    document.body.insertBefore(w,document.body.firstChild);
+  }
   load();applyLang();
 }
 
@@ -654,7 +672,9 @@ $("bg").onclick=function(){$("sheet").className="sheet"};
    customer list. If the recorder is unreachable the order still goes through —
    reaching you always matters more than the bookkeeping. */
 function recordOrder(){
-  var api=SHOP.orderApi;
+  // Same Worker that serves the catalog also keeps the order book, so there is
+  // nothing extra to set up — orderApi only exists to point somewhere else.
+  var api=SHOP.orderApi||API;
   if(!api)return;
   var L=lines();if(!L.length)return;
   var body={
@@ -671,20 +691,47 @@ function recordOrder(){
 }
 $("send").onclick=function(e){
   if(!lines().length){e.preventDefault();return}
+  if(!waNumber()){e.preventDefault();return}
   recordOrder();
   // give the basket a moment to clear visually, but never block the WhatsApp hand-off
   setTimeout(function(){cart={};save();drawGrid();drawCart();$("sheet").className="sheet"},700);
 };
 
-if(typeof INLINE!=="undefined"){boot(INLINE)}
-else{
-  fetch("./products.json").then(function(r){
-    if(!r.ok)throw new Error("products.json returned "+r.status);return r.json()
-  }).then(boot).catch(function(err){
-    $("grid").innerHTML='<div class="empty"><strong>Could not load the product list</strong>'+
-      'products.json must sit in the same folder as this page.<br><small>'+esc(err.message)+'</small></div>';
-  });
+var API=String(window.MASAARNA_API||"").replace(/\/+$/,"");
+var lastLoad=0;
+
+/* Where the catalog comes from, in order of preference:
+     1. the live catalog on your Worker — what the admin page publishes to
+     2. products.json sitting next to this page — the fallback, still works
+   Setting config.js is what switches the shop from (2) to (1). */
+function loadCatalog(){
+  if(typeof INLINE!=="undefined"){boot(INLINE);return}
+  var srcs=API?[API+"/catalog","./products.json"]:["./products.json"];
+  var errs=[];
+  (function next(i){
+    if(i>=srcs.length){
+      $("grid").innerHTML='<div class="empty"><strong>Could not load the product list</strong><br>'+
+        '<small>'+esc(errs.join(" · "))+'</small></div>';
+      return;
+    }
+    fetch(srcs[i],{cache:"no-cache"}).then(function(r){
+      if(!r.ok)throw new Error(r.status+" from "+srcs[i]);
+      return r.json();
+    }).then(function(d){ lastLoad=Date.now(); boot(d) })
+      .catch(function(e){ errs.push(e.message||String(e)); next(i+1) });
+  })(0);
 }
+loadCatalog();
+
+/* When you publish a price change, a customer with the page already open should
+   see it. Re-check when they come back to the tab — but never mid-basket, and
+   never more than once a minute. */
+document.addEventListener("visibilitychange",function(){
+  if(document.hidden)return;
+  if($("sheet").className.indexOf("on")>-1)return;
+  if(Date.now()-lastLoad<60000)return;
+  loadCatalog();
+});
 })();
 </script>
 </body>

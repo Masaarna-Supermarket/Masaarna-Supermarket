@@ -1,0 +1,945 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Masaarna — Product Manager</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+ --paper:#fbfaf7;--card:#fff;--sunk:#f2efe9;--ink:#1d1a17;--ink2:#5f584f;--faint:#8d857a;
+ --line:#e9e4da;--line2:#d6cec1;--saffron:#c9761b;--saffron-soft:#fdf1e0;
+ --pistachio:#5a7a37;--pistachio-soft:#eef3e6;--berry:#a8323f;--berry-soft:#fbeaec;
+ --amber:#95661a;--amber-soft:#fbf0d9;
+ --display:"Outfit",system-ui,sans-serif;--body:"Figtree",system-ui,sans-serif;}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --paper:#121110;--card:#1b1917;--sunk:#232120;--ink:#f3efe8;--ink2:#c3bcb1;--faint:#8f877b;
+ --line:#2c2926;--line2:#3d3833;--saffron:#eda852;--saffron-soft:#2b2115;
+ --pistachio:#9cbc68;--pistachio-soft:#1e2417;--berry:#e2848d;--berry-soft:#2c1a1c;
+ --amber:#d9a94e;--amber-soft:#2a2214;}}
+:root[data-theme="dark"]{
+ --paper:#121110;--card:#1b1917;--sunk:#232120;--ink:#f3efe8;--ink2:#c3bcb1;--faint:#8f877b;
+ --line:#2c2926;--line2:#3d3833;--saffron:#eda852;--saffron-soft:#2b2115;
+ --pistachio:#9cbc68;--pistachio-soft:#1e2417;--berry:#e2848d;--berry-soft:#2c1a1c;
+ --amber:#d9a94e;--amber-soft:#2a2214;}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--saffron);outline-offset:2px;border-radius:4px}
+
+.top{position:sticky;top:0;z-index:30;background:var(--ink);color:#f7f3ec}
+.top__in{max-width:1500px;margin:0 auto;padding:.6rem 1rem;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
+.mk{width:30px;height:30px;border-radius:9px;background:linear-gradient(140deg,var(--saffron),var(--berry));display:grid;place-items:center;font-family:var(--display);font-weight:700;color:#fff;flex:none}
+.wm{font-family:var(--display);font-weight:700;font-size:1rem;letter-spacing:-.02em}
+.wm span{display:block;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;opacity:.6;font-family:var(--body);font-weight:500}
+.top .sp{margin-inline-start:auto;display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+.tb{background:rgba(255,255,255,.12);border:none;color:inherit;border-radius:8px;padding:.4rem .7rem;cursor:pointer;font-size:.82rem;font-weight:500}
+.tb:hover{background:rgba(255,255,255,.24)}
+.tb--go{background:var(--saffron);color:#1d1a17;font-weight:700}
+.tb--go:hover{filter:brightness(1.08)}
+.dirty{background:var(--berry);color:#fff;border-radius:6px;padding:.1rem .45rem;font-size:.68rem;font-weight:700}
+
+.page{max-width:1500px;margin:0 auto;padding:1rem}
+.stats{display:grid;gap:.6rem;grid-template-columns:repeat(2,1fr);margin-bottom:1rem}
+@media(min-width:700px){.stats{grid-template-columns:repeat(6,1fr)}}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:.6rem .75rem;position:relative;overflow:hidden}
+.stat::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--line2)}
+.stat--good::before{background:var(--pistachio)}.stat--warn::before{background:var(--amber)}.stat--bad::before{background:var(--berry)}
+.stat b{display:block;font-size:.66rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.stat i{font-style:normal;font-family:var(--display);font-weight:700;font-size:1.4rem;font-variant-numeric:tabular-nums;display:block;line-height:1.2}
+
+.tools{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.7rem .8rem;margin-bottom:.9rem}
+.tools h3{font-family:var(--display);font-size:.82rem;margin:0 0 .5rem;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+.row{display:flex;gap:.45rem;flex-wrap:wrap;align-items:center}
+.row+.row{margin-top:.5rem}
+.btn{border:1px solid var(--line2);background:var(--card);border-radius:8px;padding:.4rem .7rem;font-size:.82rem;font-weight:500;cursor:pointer}
+.btn:hover{border-color:var(--saffron);color:var(--saffron)}
+.btn--go{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:600}
+.btn--go:hover{background:var(--saffron);color:#1d1a17}
+.btn--bad{border-color:var(--berry);color:var(--berry)}
+.inp{border:1px solid var(--line2);background:var(--card);border-radius:8px;padding:.4rem .55rem;font-size:.84rem}
+.inp--n{width:5rem;text-align:right;font-variant-numeric:tabular-nums}
+.inp--w{min-width:15rem;flex:1}
+textarea.inp{width:100%;font-family:ui-monospace,monospace;font-size:.78rem;min-height:6rem}
+.msg{font-size:.8rem;padding:.2rem .5rem;border-radius:6px}
+.msg--ok{background:var(--pistachio-soft);color:var(--pistachio)}
+.msg--bad{background:var(--berry-soft);color:var(--berry)}
+.msg--inf{background:var(--sunk);color:var(--faint)}
+
+.tw{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:auto;max-height:65vh}
+table{border-collapse:collapse;width:100%;font-size:.83rem}
+th,td{text-align:left;padding:.35rem .5rem;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+thead th{position:sticky;top:0;background:var(--sunk);font-size:.66rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600;z-index:2;cursor:pointer;user-select:none}
+thead th:hover{color:var(--saffron)}
+tbody tr:hover{background:var(--sunk)}
+tr.off{opacity:.5}
+td .e{border:1px solid transparent;background:none;border-radius:5px;padding:.15rem .3rem;width:100%;font-size:.83rem}
+td .e:hover{border-color:var(--line2)}
+td .e:focus{border-color:var(--saffron);background:var(--card)}
+.e--n{width:4.6rem;text-align:right;font-variant-numeric:tabular-nums}
+.e--nm{min-width:17rem}
+.e--img{min-width:13rem;font-size:.74rem;font-family:ui-monospace,monospace}
+.th{width:34px;height:34px;border-radius:6px;object-fit:contain;background:var(--sunk);display:block}
+.noth{width:34px;height:34px;border-radius:6px;background:var(--berry-soft);color:var(--berry);display:grid;place-items:center;font-size:.6rem;font-weight:700}
+.sw{position:relative;width:34px;height:19px;flex:none}
+.sw input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.sw span{position:absolute;inset:0;background:var(--line2);border-radius:99px;transition:background .15s}
+.sw span::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:transform .15s}
+.sw input:checked+span{background:var(--pistachio)}
+.sw input:checked+span::after{transform:translateX(15px)}
+.pill{display:inline-block;border-radius:5px;padding:.08rem .4rem;font-size:.66rem;font-weight:600}
+.p-ok{background:var(--pistachio-soft);color:var(--pistachio)}
+.p-bad{background:var(--berry-soft);color:var(--berry)}
+.p-warn{background:var(--amber-soft);color:var(--amber)}
+.p-mut{background:var(--sunk);color:var(--faint)}
+.drop{border:2px dashed var(--line2);border-radius:10px;padding:1.1rem;text-align:center;color:var(--faint);font-size:.84rem;cursor:pointer}
+.drop.hot{border-color:var(--saffron);background:var(--saffron-soft);color:var(--saffron)}
+.hint{font-size:.76rem;color:var(--faint);margin:.35rem 0 0}
+details{margin-top:.5rem}
+summary{cursor:pointer;font-size:.82rem;font-weight:500;color:var(--ink2)}
+summary:hover{color:var(--saffron)}
+.boot{max-width:640px;margin:4rem auto;text-align:center;padding:1rem}
+.boot h1{font-family:var(--display);font-size:1.5rem;margin:0 0 .4rem}
+.boot p{color:var(--ink2)}
+.bar{height:5px;background:var(--sunk);border-radius:99px;overflow:hidden;margin-top:.3rem}
+.bar i{display:block;height:100%;background:var(--saffron);width:0}
+
+/* shop details + connection */
+.flds{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:.55rem .7rem;margin-top:.5rem}
+.fld{display:flex;flex-direction:column;gap:.2rem}
+.fld>span{font-size:.68rem;letter-spacing:.03em;text-transform:uppercase;color:var(--faint)}
+.fld input{width:100%}
+.fld--bad input{border-color:#b91c1c}
+.vrow{display:flex;align-items:center;gap:.5rem;padding:.32rem 0;border-bottom:1px solid var(--line);font-size:.78rem}
+.vrow:last-child{border-bottom:0}
+.vrow b{font-variant-numeric:tabular-nums;min-width:3.4rem}
+.vrow time{color:var(--faint);font-size:.74rem;min-width:9.5rem}
+.vrow span{color:var(--ink2);flex:1}
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+
+<header class="top"><div class="top__in">
+  <span class="mk">م</span><span class="wm">Masaarna<span>Product manager</span></span>
+  <span class="sp">
+    <span id="dirty"></span>
+    <button class="tb" id="open">Open products.json</button>
+    <button class="tb" id="xlout">Export Excel</button>
+    <button class="tb" id="xlin">Import Excel</button>
+    <button class="tb" id="save">Backup file</button>
+    <button class="tb tb--go" id="pub">Publish to shop</button>
+    <button class="tb" id="theme">◐</button>
+  </span>
+</div></header>
+
+<div class="boot" id="boot">
+  <h1>Open your products</h1>
+  <p>If your shop address is set, this page loads the live catalog by itself and
+     <strong>Publish to shop</strong> puts your changes straight onto the website.
+     No downloading, no uploading.</p>
+  <div class="row" style="justify-content:center;margin:.8rem 0">
+    <input class="inp" id="boot_api" placeholder="https://masaarna.YOUR-NAME.workers.dev" style="min-width:19rem">
+    <button class="btn btn--go" id="boot_go">Load the live catalog</button>
+  </div>
+  <p class="hint" id="boot_msg"></p>
+  <div class="drop" id="drop">…or drop <strong>products.json</strong> here to work from a file</div>
+</div>
+
+<main class="page" id="app" hidden>
+
+  <div class="tools" id="conn">
+    <h3>Shop address and key</h3>
+    <p class="hint" style="margin:-.2rem 0 .2rem">
+      Set these once. They stay in this browser only, never in any file.
+      The key is what lets this page change the live shop — treat it like the shop keys.
+    </p>
+    <div class="row">
+      <input class="inp" id="oapi" placeholder="https://masaarna.YOUR-NAME.workers.dev" style="min-width:20rem">
+      <input class="inp" id="okey" type="password" placeholder="Admin key" autocomplete="off">
+      <button class="btn" id="osave">Remember</button>
+      <button class="btn" id="opull">Load live catalog</button>
+      <span class="msg msg--inf" id="cmsg"></span>
+    </div>
+  </div>
+
+  <div class="tools">
+    <h3>Shop details <small style="font-weight:400;color:var(--faint)">— what customers see at the top and bottom of the shop</small></h3>
+    <div class="flds">
+      <label class="fld"><span>Shop name</span><input class="inp" id="s_name"></label>
+      <label class="fld"><span>Shop name in Arabic</span><input class="inp" id="s_nameAr" dir="rtl"></label>
+      <label class="fld" id="wafld"><span>WhatsApp number — digits only</span><input class="inp" id="s_wa" inputmode="numeric" placeholder="9715XXXXXXXX"></label>
+      <label class="fld"><span>Phone to show</span><input class="inp" id="s_phone" placeholder="+971 6 715 8201"></label>
+      <label class="fld"><span>Email</span><input class="inp" id="s_email" type="email"></label>
+      <label class="fld"><span>Opens</span><input class="inp" id="s_hfrom" placeholder="10:00"></label>
+      <label class="fld"><span>Closes</span><input class="inp" id="s_hto" placeholder="00:00"></label>
+      <label class="fld"><span>Delivery radius in km</span><input class="inp" id="s_radius" type="number" min="1" max="50" step="1"></label>
+      <label class="fld"><span>Area name</span><input class="inp" id="s_area"></label>
+      <label class="fld"><span>Area name in Arabic</span><input class="inp" id="s_areaAr" dir="rtl"></label>
+      <label class="fld"><span>Google Maps link</span><input class="inp" id="s_map"></label>
+      <label class="fld"><span>Google review link</span><input class="inp" id="s_rev"></label>
+      <label class="fld"><span>TikTok link</span><input class="inp" id="s_tik"></label>
+      <label class="fld"><span>WhatsApp channel link</span><input class="inp" id="s_wac"></label>
+    </div>
+    <p class="hint" id="wahint" style="margin:.5rem 0 0"></p>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="tools">
+    <h3>Filter</h3>
+    <div class="row">
+      <input class="inp inp--w" id="q" placeholder="Search name, barcode or category">
+      <select class="inp" id="fcat"></select>
+      <select class="inp" id="fvis">
+        <option value="">Shown and hidden</option>
+        <option value="1">Shown only</option>
+        <option value="0">Hidden only</option>
+      </select>
+      <select class="inp" id="foff">
+        <option value="">Offers and normal</option>
+        <option value="1">On offer only</option>
+        <option value="0">No offer</option>
+      </select>
+      <select class="inp" id="fimg">
+        <option value="">With and without photo</option>
+        <option value="1">Has a photo</option>
+        <option value="0">No photo</option>
+      </select>
+      <span class="msg msg--inf" id="shown"></span>
+    </div>
+  </div>
+
+  <div class="tools">
+    <h3>Do this to everything currently filtered</h3>
+    <div class="row">
+      <button class="btn" data-bulk="show">Show all</button>
+      <button class="btn" data-bulk="hide">Hide all</button>
+      <button class="btn btn--bad" data-bulk="hidenoimg">Hide the ones with no photo</button>
+      <button class="btn" data-bulk="shownimg">Show the ones that have a photo</button>
+      <button class="btn" data-bulk="clearoffer">Clear all offers</button>
+    </div>
+    <div class="row">
+      <select class="inp" id="bact">
+        <option value="price">Set price to</option>
+        <option value="pricepc">Change price by %</option>
+        <option value="stock">Set stock to</option>
+        <option value="stockadd">Add to stock</option>
+        <option value="cat">Move to category</option>
+        <option value="offer">Put on offer, % off</option>
+      </select>
+      <input class="inp inp--n" id="bval" value="10">
+      <button class="btn btn--go" id="bgo">Apply</button>
+      <span class="msg msg--inf" id="bmsg">nothing applied yet</span>
+    </div>
+  </div>
+
+  <div class="tools">
+    <h3>Photos</h3>
+    <p class="hint" style="margin:-.2rem 0 .55rem">
+      Your links are already in your spreadsheets. Press <strong>Import Excel</strong> at the top —
+      it reads <code>Image 1</code>, <code>Image 2</code>, <code>Image 3</code> and <code>Photo link</code> columns,
+      <strong>including links hidden behind cells</strong> that only show “123” or “Photo 1”.
+      Match is by barcode. Nothing needs renaming.
+    </p>
+    <div class="row">
+      <input class="inp" id="ibkey" placeholder="ImgBB API key" style="min-width:15rem" autocomplete="off">
+      <button class="btn" id="ibsave">Remember key</button>
+      <span class="msg msg--inf">Free key from imgbb.com → About → API</span>
+    </div>
+    <div class="row" style="margin-top:.6rem">
+      <div class="drop" id="imgdrop" style="flex:1">
+        <strong>Only if a photo is not online yet.</strong><br>
+        Drop image files here to upload them to ImgBB. Files named by barcode or by product name attach themselves.
+      </div>
+    </div>
+    <div class="bar" id="upbar" hidden><i></i></div>
+    <p class="hint" id="upmsg"></p>
+    <details>
+      <summary>Or paste a list of links</summary>
+      <p class="hint">One per line: <code>barcode,link</code> — or <code>barcode&lt;TAB&gt;link</code> straight out of Excel.</p>
+      <textarea class="inp" id="pastebox" placeholder="6281007070775,https://i.ibb.co/xxxx/photo.jpg"></textarea>
+      <div class="row"><button class="btn btn--go" id="pastego">Attach these links</button>
+        <span class="msg msg--inf" id="pastemsg"></span></div>
+    </details>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th data-s="visible">On</th><th>Photo</th><th data-s="name">Product</th>
+        <th data-s="sku">Barcode</th><th data-s="cat">Category</th>
+        <th data-s="price">Price</th><th data-s="was">Was (offer)</th><th data-s="stock">Stock</th><th>Image link</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p class="hint" id="cap"></p>
+
+  <div class="tools" style="margin-top:1rem">
+    <h3>Orders</h3>
+    <p class="hint" style="margin:-.2rem 0 .55rem">
+      Uses the same address and key as above.
+    </p>
+    <div class="row">
+      <button class="btn btn--go" id="oload">Load orders</button>
+      <button class="btn" id="oxl">Download orders for Excel</button>
+      <span class="msg msg--inf" id="omsg"></span>
+    </div>
+    <div class="tw" style="max-height:40vh;margin-top:.6rem" id="owrap" hidden>
+      <table>
+        <thead><tr><th>Order</th><th>When</th><th>Customer</th><th>Phone</th><th>Area</th>
+          <th>Items</th><th>Total</th><th>Status</th></tr></thead>
+        <tbody id="orows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tools" style="margin-top:1rem">
+    <h3>Undo a publish</h3>
+    <p class="hint" style="margin:-.2rem 0 .55rem">
+      The last 20 publishes are kept. Going back is itself a publish, so you can
+      always come forward again.
+    </p>
+    <div class="row">
+      <button class="btn" id="vload">Show past publishes</button>
+      <button class="btn" id="vdl">Download a backup of what is live</button>
+      <span class="msg msg--inf" id="vmsg"></span>
+    </div>
+    <div id="vlist" style="margin-top:.5rem"></div>
+  </div>
+</main>
+
+<input type="file" id="filein" accept=".json,application/json" hidden>
+<input type="file" id="xlfile" accept=".xlsx,.xls,.csv" hidden>
+<input type="file" id="imgfiles" accept="image/*" multiple hidden>
+
+<script>
+(function(){
+"use strict";
+var DOC=null, P=[], sortKey="", sortDir=1, dirty=false, CAP=400;
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function setDirty(v){dirty=v;$("dirty").innerHTML=v?'<span class="dirty">unsaved</span>':""}
+window.addEventListener("beforeunload",function(e){if(dirty){e.preventDefault();e.returnValue=""}});
+
+/* ── load ───────────────────────────────────────────── */
+function boot(doc){
+  DOC=doc; P=doc.products||[];
+  P.forEach(function(p){ if(p.visible===undefined)p.visible=1 });
+  $("boot").hidden=true; $("app").hidden=false;
+  fillShop();
+  var cats=[].concat(new Set?Array.from(new Set(P.map(function(p){return p.cat}))):[]).sort();
+  $("fcat").innerHTML='<option value="">All categories</option>'+
+    cats.map(function(c){return '<option>'+esc(c)+'</option>'}).join("");
+  draw();
+}
+function readJsonFile(f){
+  var r=new FileReader();
+  r.onload=function(){
+    try{ boot(JSON.parse(r.result)) }
+    catch(e){ alert("That file is not valid JSON.\n\n"+e.message) }
+  };
+  r.readAsText(f);
+}
+$("drop").onclick=function(){$("filein").click()};
+$("filein").onchange=function(e){if(e.target.files[0])readJsonFile(e.target.files[0])};
+["dragenter","dragover"].forEach(function(ev){$("drop").addEventListener(ev,function(e){
+  e.preventDefault();$("drop").classList.add("hot")})});
+["dragleave","drop"].forEach(function(ev){$("drop").addEventListener(ev,function(e){
+  e.preventDefault();$("drop").classList.remove("hot")})});
+$("drop").addEventListener("drop",function(e){
+  var f=e.dataTransfer.files[0]; if(f)readJsonFile(f)});
+$("open").onclick=function(){$("filein").click()};
+
+/* ── filtering ──────────────────────────────────────── */
+function filtered(){
+  var q=$("q").value.trim().toLowerCase(),c=$("fcat").value,v=$("fvis").value,i=$("fimg").value;
+  var r=P.filter(function(p){
+    if(c&&p.cat!==c)return false;
+    if(v!==""&&String(p.visible)!==v)return false;
+    var off=$("foff").value;
+    var isOff=p.was!=null&&p.was>p.price;
+    if(off==="1"&&!isOff)return false;
+    if(off==="0"&&isOff)return false;
+    if(i==="1"&&!p.img)return false;
+    if(i==="0"&&p.img)return false;
+    if(!q)return true;
+    return p.name.toLowerCase().indexOf(q)>-1||String(p.sku).indexOf(q)>-1||p.cat.toLowerCase().indexOf(q)>-1;
+  });
+  if(sortKey)r=r.slice().sort(function(a,b){
+    var x=a[sortKey],y=b[sortKey];
+    if(typeof x==="string")return x.localeCompare(y)*sortDir;
+    return ((x||0)-(y||0))*sortDir});
+  return r;
+}
+["q","fcat","fvis","fimg","foff"].forEach(function(id){$(id).oninput=draw;$(id).onchange=draw});
+Array.prototype.forEach.call(document.querySelectorAll("th[data-s]"),function(th){
+  th.onclick=function(){var k=th.getAttribute("data-s");
+    sortDir=(sortKey===k)?-sortDir:1;sortKey=k;draw()}});
+
+/* ── draw ───────────────────────────────────────────── */
+function stats(){
+  var vis=P.filter(function(p){return p.visible===1}).length;
+  var img=P.filter(function(p){return !!p.img}).length;
+  var own=P.filter(function(p){return p.img&&p.img.indexOf("i.ibb.co")>-1}).length;
+  var oos=P.filter(function(p){return (p.stock||0)===0}).length;
+  var val=P.reduce(function(s,p){return s+(p.price||0)*(p.stock||0)},0);
+  $("stats").innerHTML=[
+   ["Products",P.length,""],
+   ["On the shop",vis+" <small style='font-size:.6rem;color:var(--faint)'>of "+P.length+"</small>",vis/P.length>.7?"good":"warn"],
+   ["Have a photo",img+" <small style='font-size:.6rem;color:var(--faint)'>"+Math.round(img/P.length*100)+"%</small>",img/P.length>.7?"good":"bad"],
+   ["Your own photos",own+" <small style='font-size:.6rem;color:var(--faint)'>rest borrowed</small>",own>img*0.6?"good":"warn"],
+   ["On offer",P.filter(function(p){return p.was!=null&&p.was>p.price}).length,""],
+   ["Stock value","AED "+Math.round(val).toLocaleString(),""]
+  ].map(function(s){return '<div class="stat '+(s[2]?"stat--"+s[2]:"")+'"><b>'+s[0]+'</b><i>'+s[1]+'</i></div>'}).join("");
+}
+function draw(){
+  stats();
+  var rows=filtered(), show=rows.slice(0,CAP);
+  $("shown").textContent=rows.length+" of "+P.length+" match";
+  $("cap").textContent=rows.length>show.length
+    ? "Showing the first "+show.length+". Narrow the filter to reach the rest — bulk actions still apply to all "+rows.length+"."
+    : "";
+  $("rows").innerHTML=show.map(function(p){
+    var i=P.indexOf(p);
+    return '<tr class="'+(p.visible?"":"off")+'" data-i="'+i+'">'+
+      '<td><label class="sw"><input type="checkbox" data-v '+(p.visible?"checked":"")+'><span></span></label></td>'+
+      '<td>'+(p.img?'<img class="th" src="'+esc(p.img)+'" loading="lazy" alt="" '+
+             'onerror="this.outerHTML=\'<div class=&quot;noth&quot;>404</div>\'">'
+             :'<div class="noth">none</div>')+'</td>'+
+      '<td><input class="e e--nm" data-f="name" value="'+esc(p.name)+'"></td>'+
+      '<td style="font-size:.76rem;color:var(--faint)">'+esc(p.sku)+'</td>'+
+      '<td><input class="e" data-f="cat" value="'+esc(p.cat)+'" style="width:11rem"></td>'+
+      '<td><input class="e e--n" data-f="price" type="number" step="0.01" value="'+(p.price||0)+'"></td>'+
+      '<td><input class="e e--n" data-f="was" type="number" step="0.01" value="'+(p.was!=null?p.was:"")+
+        '" placeholder="—" title="Price before the offer. Leave empty for no offer."></td>'+
+      '<td><input class="e e--n" data-f="stock" type="number" value="'+(p.stock||0)+'"></td>'+
+      '<td><input class="e e--img" data-f="img" value="'+esc(p.img||"")+'" placeholder="paste a link"></td></tr>';
+  }).join("");
+  wire();
+}
+function wire(){
+  Array.prototype.forEach.call($("rows").querySelectorAll("[data-v]"),function(b){
+    b.onchange=function(){P[+b.closest("tr").dataset.i].visible=b.checked?1:0;
+      b.closest("tr").className=b.checked?"":"off";setDirty(true);stats()}});
+  Array.prototype.forEach.call($("rows").querySelectorAll("[data-f]"),function(el){
+    el.onchange=function(){
+      var p=P[+el.closest("tr").dataset.i],f=el.getAttribute("data-f");
+      if(f==="was"){ var w=parseFloat(el.value);
+        if(!el.value.trim()||isNaN(w)||w<=0){delete p.was} else {p.was=Math.round(w*100)/100} }
+      else p[f]=(f==="price")?parseFloat(el.value)||0:(f==="stock")?parseInt(el.value,10)||0:el.value.trim();
+      setDirty(true);stats()}});
+}
+
+/* ── bulk ───────────────────────────────────────────── */
+Array.prototype.forEach.call(document.querySelectorAll("[data-bulk]"),function(b){
+  b.onclick=function(){
+    var rows=filtered(),n=0,k=b.getAttribute("data-bulk");
+    rows.forEach(function(p){
+      if(k==="show"){p.visible=1;n++}
+      else if(k==="hide"){p.visible=0;n++}
+      else if(k==="hidenoimg"&&!p.img){p.visible=0;n++}
+      else if(k==="shownimg"&&p.img){p.visible=1;n++}
+      else if(k==="clearoffer"&&p.was!=null){delete p.was;n++}
+    });
+    setDirty(true);draw();
+    $("bmsg").className="msg msg--ok";$("bmsg").textContent=n+" product(s) changed";
+  }});
+$("bgo").onclick=function(){
+  var rows=filtered(),a=$("bact").value,v=$("bval").value,n=0;
+  rows.forEach(function(p){
+    if(a==="price"){p.price=Math.round(parseFloat(v)*100)/100||0;n++}
+    else if(a==="pricepc"){p.price=Math.round(p.price*(1+parseFloat(v)/100)*100)/100;n++}
+    else if(a==="stock"){p.stock=parseInt(v,10)||0;n++}
+    else if(a==="stockadd"){p.stock=Math.max(0,(p.stock||0)+(parseInt(v,10)||0));n++}
+    else if(a==="cat"&&v.trim()){p.cat=v.trim();n++}
+    else if(a==="offer"){
+      // remember the pre-offer price once, so repeated runs do not compound
+      var base=(p.was!=null&&p.was>p.price)?p.was:p.price;
+      var pct=parseFloat(v);
+      if(isFinite(pct)&&pct>0&&pct<95){
+        p.was=Math.round(base*100)/100;
+        p.price=Math.round(base*(1-pct/100)*100)/100;n++;
+      }
+    }
+  });
+  setDirty(true);draw();
+  $("bmsg").className="msg msg--ok";$("bmsg").textContent=n+" product(s) changed";
+};
+
+/* ── photos: paste a list ───────────────────────────── */
+$("pastego").onclick=function(){
+  var lines=$("pastebox").value.split(/\r?\n/),hit=0,miss=0;
+  lines.forEach(function(l){
+    var m=l.split(/[,\t]/);
+    if(m.length<2)return;
+    var sku=m[0].trim(), url=m.slice(1).join(",").trim();
+    if(!sku||!/^https?:\/\//.test(url))return;
+    var p=P.filter(function(x){return String(x.sku)===sku})[0];
+    if(p){p.img=url;if(!p.visible)p.visible=1;hit++}else miss++;
+  });
+  setDirty(true);draw();
+  $("pastemsg").className="msg "+(hit?"msg--ok":"msg--bad");
+  $("pastemsg").textContent=hit+" attached"+(miss?", "+miss+" barcode(s) not found":"");
+};
+
+/* ── photos: upload to ImgBB ────────────────────────── */
+try{ $("ibkey").value=localStorage.getItem("mas_ibb")||"" }catch(e){}
+$("ibsave").onclick=function(){
+  try{localStorage.setItem("mas_ibb",$("ibkey").value.trim());
+    $("upmsg").textContent="Key saved in this browser."}catch(e){$("upmsg").textContent="Could not save the key here."}};
+$("imgdrop").onclick=function(){$("imgfiles").click()};
+["dragenter","dragover"].forEach(function(ev){$("imgdrop").addEventListener(ev,function(e){
+  e.preventDefault();$("imgdrop").classList.add("hot")})});
+["dragleave","drop"].forEach(function(ev){$("imgdrop").addEventListener(ev,function(e){
+  e.preventDefault();$("imgdrop").classList.remove("hot")})});
+$("imgdrop").addEventListener("drop",function(e){upload(e.dataTransfer.files)});
+$("imgfiles").onchange=function(e){upload(e.target.files)};
+
+/* Your photo files are named after the PRODUCT, not the barcode
+   ("Akawi cheese.jpg"), so match on name as well — barcode first, then an
+   exact name, then a close one. Strict on the close match: a wrong photo on a
+   product is worse than no photo at all. */
+function normName(s){
+  return String(s||"").toLowerCase()
+    .replace(/\.(jpg|jpeg|png|webp|avif)$/,"")
+    .replace(/\s*\(\d+\)$/,"")
+    .replace(/[\s_-]+\d+$/,"")
+    .replace(/[^a-z0-9\u0600-\u06ff ]/g," ")
+    .replace(/\s+/g," ").trim();
+}
+function similar(a,b){
+  if(a===b)return 1;
+  var A=a.split(" ").filter(Boolean),B=b.split(" ").filter(Boolean);
+  if(!A.length||!B.length)return 0;
+  var hit=0,used={};
+  A.forEach(function(w){for(var i=0;i<B.length;i++){if(!used[i]&&B[i]===w){used[i]=1;hit++;break}}});
+  return (2*hit)/(A.length+B.length);
+}
+function matchFile(filename){
+  var base=filename.replace(/\.[^.]+$/,"").trim();
+  var byBar=P.filter(function(x){return String(x.sku)===base})[0];
+  if(byBar)return {p:byBar,how:"barcode"};
+  var k=normName(filename);
+  var exact=P.filter(function(x){return normName(x.name)===k})[0];
+  if(exact)return {p:exact,how:"name"};
+  var best=null,score=0;
+  P.forEach(function(x){var sc=similar(k,normName(x.name));if(sc>score){score=sc;best=x}});
+  if(best&&score>=0.82)return {p:best,how:"close",score:score};
+  return null;
+}
+
+function toB64(f){return new Promise(function(res,rej){
+  var r=new FileReader();r.onload=function(){res(String(r.result).split(",")[1])};
+  r.onerror=rej;r.readAsDataURL(f)})}
+
+function upload(files){
+  var key=$("ibkey").value.trim();
+  if(!key){$("upmsg").textContent="Put your ImgBB key in first.";return}
+  files=Array.prototype.slice.call(files);
+  if(!files.length)return;
+  var bar=$("upbar"),fill=bar.querySelector("i"),done=0,ok=0,att=0,fail=0;
+  var loose=[],unmatched=[];
+  bar.hidden=false;
+  (function next(){
+    if(!files.length){
+      bar.hidden=true;setDirty(true);draw();
+      var out=ok+" uploaded, "+att+" attached"+(fail?", "+fail+" failed":"");
+      if(loose.length)out+="\n\nMatched loosely — check these are the right products:\n"+loose.join("\n");
+      if(unmatched.length)out+="\n\nNo product matched ("+unmatched.length+"): "+unmatched.slice(0,12).join(", ")+
+        (unmatched.length>12?" …":"")+"\nRename these to the barcode, or paste their links by hand.";
+      $("upmsg").style.whiteSpace="pre-wrap";
+      $("upmsg").textContent=out;
+      return;
+    }
+    var f=files.shift();
+    $("upmsg").textContent="Uploading "+f.name+" … ("+(done+1)+")";
+    toB64(f).then(function(b64){
+      var fd=new FormData();fd.append("key",key);fd.append("image",b64);
+      return fetch("https://api.imgbb.com/1/upload",{method:"POST",body:fd});
+    }).then(function(r){return r.json()}).then(function(j){
+      if(!j||!j.success)throw new Error((j&&j.error&&j.error.message)||"upload refused");
+      ok++;
+      var url=j.data.url;
+      var m=matchFile(f.name);
+      if(m){m.p.img=url;m.p.visible=1;att++;
+        if(m.how==="close")loose.push(f.name+"  →  "+m.p.name);}
+      else unmatched.push(f.name);
+    }).catch(function(e){
+      fail++;
+      $("upmsg").textContent="Failed on "+f.name+": "+e.message+
+        " — if every file fails, ImgBB may be refusing requests from this page; use the paste-a-list box instead.";
+    }).then(function(){
+      done++;fill.style.width=Math.round(done/(done+files.length)*100)+"%";next();
+    });
+  })();
+}
+
+/* ── Excel in / out ─────────────────────────────────── */
+var COLS=[["sku","Barcode"],["name","Product name"],["cat","Category"],["price","Price"],
+          ["was","Was price (offer)"],["stock","Stock"],["weight","Weight"],["origin","Origin"],
+          ["img","Image link"],["visible","Show on shop (1/0)"]];
+$("xlout").onclick=function(){
+  if(!P.length)return;
+  var aoa=[COLS.map(function(c){return c[1]})];
+  P.forEach(function(p){aoa.push(COLS.map(function(c){return p[c[0]]!==undefined?p[c[0]]:""}))});
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=[{wch:16},{wch:46},{wch:20},{wch:9},{wch:8},{wch:10},{wch:12},{wch:52},{wch:16}];
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Products");
+  XLSX.writeFile(wb,"masaarna-products-"+new Date().toISOString().slice(0,10)+".xlsx");
+};
+$("xlin").onclick=function(){$("xlfile").click()};
+$("xlfile").onchange=function(e){
+  var f=e.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){
+    try{
+      // cellHTML/cellStyles off, but we need the hyperlink objects, which SheetJS
+      // hangs off each cell as .l.Target — that is where YOUR image links live.
+      var wb=XLSX.read(new Uint8Array(r.result),{type:"array",cellFormula:false});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var ref=XLSX.utils.decode_range(ws["!ref"]);
+      // header row -> column index
+      var hdr={};
+      for(var c=ref.s.c;c<=ref.e.c;c++){
+        var cell=ws[XLSX.utils.encode_cell({r:ref.s.r,c:c})];
+        var h=cell&&cell.v!=null?String(cell.v).trim().toLowerCase():"";
+        if(h)hdr[h]=c;
+      }
+      function col(){for(var i=0;i<arguments.length;i++){if(hdr[arguments[i]]!==undefined)return hdr[arguments[i]]}return undefined}
+      function val(rw,c){if(c===undefined)return "";var x=ws[XLSX.utils.encode_cell({r:rw,c:c})];return x&&x.v!=null?String(x.v).trim():""}
+      // a cell's link is either its text or the hyperlink behind it
+      function link(rw,c){
+        if(c===undefined)return "";
+        var x=ws[XLSX.utils.encode_cell({r:rw,c:c})];
+        if(!x)return "";
+        if(x.l&&x.l.Target&&/^https?:\/\//.test(x.l.Target))return String(x.l.Target).trim();
+        if(x.v&&/^https?:\/\//.test(String(x.v).trim()))return String(x.v).trim();
+        return "";
+      }
+      function isImage(u){return /i\.ibb\.co/.test(u)||/\.(jpg|jpeg|png|webp|avif|gif)(\?|$)/i.test(u)}
+
+      var cBar=col("barcode","sku","barcode ","code");
+      if(cBar===undefined)throw new Error('No "Barcode" column found in the header row.');
+      var cName=col("product name","name","item","item name","item (inventory)");
+      var cCat=col("category","class","class ","main category english");
+      var cPrice=col("price","sale price","sale price ");
+      var cStock=col("stock","quantity","quantity ","qty");
+      var cWeight=col("weight"), cOrigin=col("origin");
+      var cVis=col("show on shop (1/0)","visible");
+      var cWas=col("was price (offer)","was","old price","offer from");
+      // every column that could hold a picture
+      var imgCols=[];
+      for(var h in hdr){ if(/^(image|img|photo)/.test(h)||h==="image link"||h==="photo link"){imgCols.push(hdr[h])} }
+      if(!imgCols.length&&hdr["image link"]!==undefined)imgCols.push(hdr["image link"]);
+
+      var up=0,add=0,bad=0,imgSet=0,pageOnly=0,shown=0;
+      for(var rw=ref.s.r+1;rw<=ref.e.r;rw++){
+        var sku=val(rw,cBar).replace(/\.0$/,"");
+        if(!sku){bad++;continue}
+        var urls=[];
+        imgCols.forEach(function(c){var u=link(rw,c);if(u&&urls.indexOf(u)<0)urls.push(u)});
+        var good=urls.filter(isImage);
+        var pages=urls.filter(function(u){return /^https?:\/\/ibb\.co\//.test(u)});
+
+        var p=P.filter(function(x){return String(x.sku)===sku})[0];
+        var name=cName!==undefined?val(rw,cName):"";
+        var price=cPrice!==undefined?parseFloat(val(rw,cPrice)):NaN;
+        var stock=cStock!==undefined?parseInt(val(rw,cStock),10):NaN;
+
+        if(!p){
+          if(!name||isNaN(price)){bad++;continue}
+          p={sku:sku,name:name,cat:cCat!==undefined?(val(rw,cCat)||"GROCERY"):"GROCERY",
+             price:Math.round(price*100)/100,stock:isNaN(stock)?0:stock,
+             weight:cWeight!==undefined?val(rw,cWeight):"",origin:cOrigin!==undefined?val(rw,cOrigin):"",
+             img:"",visible:0};
+          P.push(p);add++;
+        }else{
+          if(name)p.name=name;
+          if(!isNaN(price))p.price=Math.round(price*100)/100;
+          if(!isNaN(stock))p.stock=stock;
+          if(cCat!==undefined&&val(rw,cCat))p.cat=val(rw,cCat);
+          if(cWeight!==undefined&&val(rw,cWeight))p.weight=val(rw,cWeight);
+          if(cOrigin!==undefined&&val(rw,cOrigin))p.origin=val(rw,cOrigin);
+          up++;
+        }
+        if(good.length){
+          p.img=good[0];
+          if(good.length>1)p.imgs=good.slice(0,4);   // keep the extras
+          if(!p.visible){p.visible=1;shown++}
+          imgSet++;
+        }else if(pages.length&&!p.img){
+          p.imgPage=pages[0];pageOnly++;
+        }
+        if(cVis!==undefined&&val(rw,cVis)!==""){p.visible=(val(rw,cVis)==="1"||/true/i.test(val(rw,cVis)))?1:0}
+        if(cWas!==undefined){var wv=parseFloat(val(rw,cWas));
+          if(val(rw,cWas)===""||isNaN(wv)||wv<=0){delete p.was} else {p.was=Math.round(wv*100)/100}}
+      }
+      setDirty(true);draw();
+      alert("Import finished.\n\n"+
+            up+" products updated\n"+
+            add+" products added\n"+
+            imgSet+" got an image link"+(shown?"  ("+shown+" of them switched on)":"")+"\n"+
+            (pageOnly?pageOnly+" had only an ibb.co PAGE link — those need the direct i.ibb.co address\n":"")+
+            bad+" rows skipped\n\n"+
+            (imgCols.length?"Image columns read: "+imgCols.length:"No image column found — check the header row says Image 1 / Photo / Image link."));
+    }catch(err){alert("Could not read that file.\n\n"+err.message)}
+  };
+  r.readAsArrayBuffer(f);
+  e.target.value="";
+};
+
+/* ── shop details ───────────────────────────────────
+   The shop block used to be editable only by hand in Notepad. Every field the
+   customer actually sees is here instead, and Publish sends it live. */
+var SHOPF=[
+  ["s_name",   ["name"]],              ["s_nameAr", ["nameAr"]],
+  ["s_wa",     ["whatsapp"]],
+  ["s_phone",  ["contact","phone"]],   ["s_email",  ["contact","email"]],
+  ["s_hfrom",  ["contact","hoursFrom"]],["s_hto",   ["contact","hoursTo"]],
+  ["s_radius", ["delivery","radiusKm"]],
+  ["s_area",   ["location","areaName"]],["s_areaAr",["location","areaNameAr"]],
+  ["s_map",    ["location","mapUrl"]],
+  ["s_rev",    ["links","googleReview"]],["s_tik",  ["links","tiktok"]],
+  ["s_wac",    ["links","whatsappCommunity"]]
+];
+function dig(o,path,make){
+  for(var i=0;i<path.length-1;i++){
+    if(o[path[i]]==null||typeof o[path[i]]!=="object"){ if(!make)return null; o[path[i]]={} }
+    o=o[path[i]];
+  }
+  return o;
+}
+function fillShop(){
+  var sh=DOC.shop=DOC.shop||{};
+  SHOPF.forEach(function(f){
+    var parent=dig(sh,f[1],false), k=f[1][f[1].length-1];
+    $(f[0]).value=parent&&parent[k]!=null?parent[k]:"";
+  });
+  checkWa();
+}
+function readShop(){
+  var sh=DOC.shop=DOC.shop||{};
+  SHOPF.forEach(function(f){
+    var parent=dig(sh,f[1],true), k=f[1][f[1].length-1], v=$(f[0]).value.trim();
+    if(f[0]==="s_wa")      v=v.replace(/[^0-9]/g,"");
+    if(f[0]==="s_radius")  v=Math.max(1,Math.min(50,parseFloat(v)||7));
+    parent[k]=v;
+  });
+  // the shop page dials this, so keep it in step with the number shown
+  if(sh.contact) sh.contact.phoneDial=String(sh.contact.phone||"").replace(/[^0-9]/g,"");
+}
+/* A number still holding letters ("9715XXXXXXXX") loses them and opens a chat
+   with "9715" — a dead link that looks fine until a customer tries it. */
+function checkWa(){
+  var raw=$("s_wa").value.trim(), d=raw.replace(/[^0-9]/g,"");
+  var ok=d.length>=9&&d.length<=15;
+  $("wafld").className="fld"+(raw&&!ok?" fld--bad":"");
+  $("wahint").innerHTML = !raw
+    ? "<strong>No WhatsApp number yet — the shop cannot take a single order until this is filled in.</strong>"
+    : !ok
+      ? "<strong>That is not a usable number.</strong> Country code and digits only, no + and no letters. "+
+        "For the UAE that is 971 then the number without its leading 0 — for example 97150123456."
+      : "Orders will open a chat with <strong>+"+d+"</strong>. Send yourself a test order after publishing — "+
+        "a landline usually has no WhatsApp, so this normally needs to be the mobile you answer.";
+}
+$("s_wa").oninput=function(){checkWa();setDirty(true)};
+SHOPF.forEach(function(f){ if(f[0]!=="s_wa") $(f[0]).oninput=function(){setDirty(true)} });
+
+/* ── connection ─────────────────────────────────────── */
+function cmsg(t,k){ $("cmsg").className="msg msg--"+(k||"inf"); $("cmsg").innerHTML=t }
+function akey(){ return $("okey").value.trim() }
+
+/* ── publish ────────────────────────────────────────── */
+/* Category counts must match what is actually on the shop, so they are rebuilt
+   from the products every time — never edited by hand, never allowed to drift. */
+function normalise(){
+  var vis={},all={};
+  P.forEach(function(p){all[p.cat]=(all[p.cat]||0)+1;if(p.visible)vis[p.cat]=(vis[p.cat]||0)+1});
+  var old=DOC.categories||[];
+  DOC.categories=Object.keys(all).sort(function(a,b){return all[b]-all[a]}).map(function(c){
+    var prev=old.filter(function(x){return x.key===c})[0];
+    return {key:c,ar:prev?prev.ar:c,count:vis[c]||0,total:all[c]}});
+  DOC.products=P;
+  readShop();
+}
+$("pub").onclick=function(){
+  if(!DOC)return;
+  if(!oapi())return cmsg("Put your shop address in the box above first.","bad");
+  if(!akey())return cmsg("Put your admin key in the box above first.","bad");
+  normalise();
+  var was=$("pub").textContent; $("pub").disabled=true; $("pub").textContent="Publishing…";
+  cmsg("Publishing…","inf");
+  fetch(oapi()+"/catalog",{method:"PUT",
+      headers:{"Content-Type":"application/json","X-Admin-Key":akey()},
+      body:JSON.stringify(DOC)})
+   .then(function(r){ return r.json().catch(function(){return {}}).then(function(j){return {st:r.status,ok:r.ok,j:j}}) })
+   .then(function(x){
+     if(x.st===401)throw new Error("That admin key is wrong.");
+     if(!x.ok)throw new Error(x.j.error||("The shop answered "+x.st));
+     setDirty(false);
+     cmsg("<strong>Live now.</strong> Version "+x.j.version+" · "+x.j.visible+" of "+x.j.products+
+          " products on the shop. Customers see it within a minute.","ok");
+     if($("vlist").innerHTML)loadVersions(true);
+   })
+   .catch(function(e){ cmsg(e.message,"bad") })
+   .then(function(){ $("pub").disabled=false; $("pub").textContent=was });
+};
+
+/* ── pull the live catalog ──────────────────────────── */
+function pull(quiet){
+  if(!oapi()){ if(!quiet)cmsg("Put your shop address in first.","bad"); return Promise.reject() }
+  if(!quiet)cmsg("Loading…","inf");
+  return fetch(oapi()+"/catalog",{cache:"no-cache"})
+   .then(function(r){
+     if(r.status===404)throw new Error("Nothing is published yet. Open products.json below, then press Publish to shop once.");
+     if(!r.ok)throw new Error("The shop answered "+r.status);
+     return r.json();
+   })
+   .then(function(d){
+     if(dirty&&!confirm("You have unsaved changes. Loading the live catalog will discard them. Continue?"))throw new Error("Left alone.");
+     boot(d); setDirty(false);
+     if(!quiet)cmsg("Loaded what is live on the shop right now.","ok");
+   });
+}
+$("opull").onclick=function(){ pull(false).catch(function(e){ if(e&&e.message)cmsg(e.message,"bad") }) };
+
+/* ── past publishes ─────────────────────────────────── */
+function loadVersions(keepMsg){
+  if(!oapi()||!akey())return vmsg("Shop address and admin key first.","bad");
+  if(!keepMsg)vmsg("Loading…","inf");
+  fetch(oapi()+"/catalog/versions",{headers:{"X-Admin-Key":akey()}})
+   .then(function(r){ if(r.status===401)throw new Error("That admin key is wrong.");
+                      if(!r.ok)throw new Error("The shop answered "+r.status); return r.json() })
+   .then(function(d){
+     var v=d.versions||[];
+     $("vlist").innerHTML=v.length?v.map(function(x,i){
+       return '<div class="vrow"><b>v'+x.version+'</b>'+
+         '<time>'+esc(x.updated_at||"")+'</time>'+
+         '<span>'+Math.round((x.bytes||0)/1024)+' KB'+(x.note?" · "+esc(x.note):"")+'</span>'+
+         (i===0?'<span class="pill p-ok">live</span>'
+               :'<button class="btn" data-restore="'+x.version+'">Go back to this</button>')+
+         '</div>';
+     }).join(""):'<p class="hint">Nothing published yet.</p>';
+     if(!keepMsg)vmsg(v.length+" publish(es) kept.","ok");
+   }).catch(function(e){ vmsg(e.message,"bad") });
+}
+function vmsg(t,k){ $("vmsg").className="msg msg--"+(k||"inf"); $("vmsg").textContent=t }
+$("vload").onclick=function(){loadVersions(false)};
+$("vlist").onclick=function(e){
+  var b=e.target.closest?e.target.closest("[data-restore]"):null; if(!b)return;
+  var v=b.getAttribute("data-restore");
+  if(!confirm("Put version "+v+" back on the shop?\n\nThis is itself a publish, so you can come forward again."))return;
+  vmsg("Restoring…","inf");
+  fetch(oapi()+"/catalog/restore",{method:"POST",
+      headers:{"Content-Type":"application/json","X-Admin-Key":akey()},
+      body:JSON.stringify({version:parseInt(v,10)})})
+   .then(function(r){ return r.json().then(function(j){ if(!r.ok)throw new Error(j.error||r.status); return j }) })
+   .then(function(j){ vmsg("Version "+v+" is back on the shop, saved as v"+j.version+".","ok");
+                      loadVersions(true); pull(true).catch(function(){}) })
+   .catch(function(e){ vmsg(e.message,"bad") });
+};
+$("vdl").onclick=function(){
+  if(!oapi()||!akey())return vmsg("Shop address and admin key first.","bad");
+  fetch(oapi()+"/catalog/backup.json",{headers:{"X-Admin-Key":akey()}})
+   .then(function(r){ if(!r.ok)throw new Error("The shop answered "+r.status); return r.blob() })
+   .then(function(b){
+     var a=document.createElement("a");a.href=URL.createObjectURL(b);
+     a.download="masaarna-backup-"+new Date().toISOString().slice(0,10)+".json";
+     document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(a.href);
+     vmsg("Backup downloaded. Keep it somewhere safe.","ok");
+   }).catch(function(e){ vmsg(e.message,"bad") });
+};
+
+/* ── orders ─────────────────────────────────────────── */
+try{
+  $("oapi").value=localStorage.getItem("mas_oapi")||String(window.MASAARNA_API||"");
+  $("okey").value=localStorage.getItem("mas_okey")||"";
+}catch(e){ $("oapi").value=String(window.MASAARNA_API||"") }
+$("osave").onclick=function(){
+  try{ localStorage.setItem("mas_oapi",$("oapi").value.trim());
+       localStorage.setItem("mas_okey",$("okey").value.trim());
+       cmsg("Remembered in this browser. You will not be asked again on this computer.","ok") }
+  catch(e){ cmsg("This browser will not remember it — you will have to paste it each time.","bad") }};
+function omsg(t,k){ $("omsg").className="msg msg--"+(k||"inf"); $("omsg").textContent=t }
+function oapi(){ return $("oapi").value.trim().replace(/\/+$/,"") }
+
+$("oload").onclick=function(){
+  if(!oapi())return omsg("Paste the recorder address first.","bad");
+  omsg("Loading…","inf");
+  fetch(oapi()+"/orders?limit=500",{headers:{"X-Admin-Key":$("okey").value.trim()}})
+   .then(function(r){ if(r.status===401)throw new Error("That admin key is wrong.");
+                      if(!r.ok)throw new Error("Recorder answered "+r.status); return r.json() })
+   .then(function(d){
+     var o=d.orders||[];
+     $("owrap").hidden=false;
+     $("orows").innerHTML=o.length?o.map(function(x){
+       var st={new:"p-warn",confirmed:"p-ok",packing:"p-ok",delivering:"p-ok",done:"p-mut",cancelled:"p-bad"}[x.status]||"p-mut";
+       return "<tr><td style='font-size:.76rem'>"+esc(x.ref)+"</td>"+
+         "<td style='font-size:.76rem'>"+esc(String(x.created_at||"").slice(0,16))+"</td>"+
+         "<td>"+esc(x.customer_name||"")+"</td><td>"+esc(x.customer_phone||"")+"</td>"+
+         "<td>"+esc(x.area||"")+"</td><td class='e--n'>"+(x.item_count||0)+"</td>"+
+         "<td class='e--n'>AED "+Number(x.total||0).toFixed(2)+"</td>"+
+         "<td><span class='pill "+st+"'>"+esc(x.status||"new")+"</span></td></tr>";
+     }).join(""):"<tr><td colspan='8' style='text-align:center;color:var(--faint);padding:1.5rem'>No orders recorded yet.</td></tr>";
+     var rev=o.reduce(function(s,x){return s+Number(x.total||0)},0);
+     omsg(o.length+" order(s) · AED "+rev.toFixed(2)+" total","ok");
+   }).catch(function(e){ omsg(e.message,"bad") });
+};
+$("oxl").onclick=function(){
+  if(!oapi())return omsg("Paste the recorder address first.","bad");
+  omsg("Preparing…","inf");
+  fetch(oapi()+"/orders.csv?limit=2000",{headers:{"X-Admin-Key":$("okey").value.trim()}})
+   .then(function(r){ if(r.status===401)throw new Error("That admin key is wrong.");
+                      if(!r.ok)throw new Error("Recorder answered "+r.status); return r.blob() })
+   .then(function(b){
+     var a=document.createElement("a");a.href=URL.createObjectURL(b);
+     a.download="masaarna-orders-"+new Date().toISOString().slice(0,10)+".csv";
+     document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(a.href);
+     omsg("Downloaded — opens straight in Excel.","ok");
+   }).catch(function(e){ omsg(e.message,"bad") });
+};
+
+/* ── save ───────────────────────────────────────────── */
+$("save").onclick=function(){
+  if(!DOC)return;
+  normalise();
+  var blob=new Blob([JSON.stringify(DOC)],{type:"application/json"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="products.json";
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(a.href);
+  setDirty(false);
+};
+
+$("theme").onclick=function(){
+  var cur=document.documentElement.getAttribute("data-theme");
+  var dark=cur?cur==="dark":window.matchMedia("(prefers-color-scheme:dark)").matches;
+  document.documentElement.setAttribute("data-theme",dark?"light":"dark")};
+
+/* ── what loads when you open this page ─────────────
+   1. the live catalog, if the shop address is known
+   2. products.json sitting next to this page
+   3. nothing — you drop a file in yourself */
+$("boot_api").value=$("oapi").value;
+$("boot_go").onclick=function(){
+  var v=$("boot_api").value.trim(); if(!v){ $("boot_msg").textContent="Paste your shop address first."; return }
+  $("oapi").value=v; try{ localStorage.setItem("mas_oapi",v) }catch(e){}
+  $("boot_msg").textContent="Loading…";
+  pull(true).catch(function(e){ $("boot_msg").textContent=(e&&e.message)||"Could not reach that address." });
+};
+(function(){
+  if($("oapi").value.trim()){
+    pull(true).catch(function(e){
+      $("boot_msg").textContent=(e&&e.message)||"";
+      fetch("./products.json").then(function(r){if(!r.ok)throw 0;return r.json()}).then(boot).catch(function(){});
+    });
+  } else {
+    fetch("./products.json").then(function(r){if(!r.ok)throw 0;return r.json()}).then(boot).catch(function(){});
+  }
+})();
+})();
+</script>
+</body>
+</html>
