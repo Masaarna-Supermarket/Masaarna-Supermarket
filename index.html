@@ -141,6 +141,20 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
 .rangehint a{color:inherit}
 .load{max-width:1240px;margin:0 auto;padding:4rem 1rem;text-align:center;color:var(--faint)}
 
+/* store strip */
+.hero{border-bottom:1px solid var(--line);background:var(--card)}
+.hero__in{max-width:1240px;margin:0 auto;padding:.85rem 1rem}
+.hero__about{margin:0 0 .45rem;font-size:.92rem;color:var(--ink2);max-width:64ch}
+.hero__facts{display:flex;gap:.45rem;flex-wrap:wrap}
+.fact{display:inline-flex;align-items:center;gap:.35rem;font-size:.78rem;color:var(--faint);
+ background:var(--sunk);border-radius:999px;padding:.22rem .6rem;text-decoration:none}
+.fact--link{color:var(--saffron)}
+.fact--link:hover{background:var(--saffron-soft)}
+.fact b{font-weight:600;color:var(--ink)}
+.fact .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.fact .dot--on{background:var(--pistachio)}
+.fact .dot--off{background:var(--berry)}
+
 /* delivery banner */
 .delbar{border-bottom:1px solid var(--line);background:var(--pistachio-soft, var(--sunk))}
 .delbar__in{max-width:1240px;margin:0 auto;padding:.5rem 1rem;display:flex;align-items:center;gap:.55rem;
@@ -192,6 +206,17 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
   <button class="ib" id="theme" title="Theme">◐</button>
 </div></header>
 
+<section class="hero" id="hero">
+  <div class="hero__in">
+    <p class="hero__about" id="hero_about"></p>
+    <div class="hero__facts">
+      <span class="fact" id="fact_hours"></span>
+      <span class="fact" id="fact_where"></span>
+      <a class="fact fact--link" id="fact_map" href="#" target="_blank" rel="noopener"></a>
+    </div>
+  </div>
+</section>
+
 <nav class="rail"><div class="rail__in" id="chips"></div></nav>
 
 <div class="delbar" id="delbar">
@@ -229,6 +254,9 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
       <h3 id="f_visit">Visit us</h3>
       <p id="f_area" class="foot__muted"></p>
       <a id="f_map" href="#" target="_blank" rel="noopener" class="foot__link">Open in Google Maps →</a>
+      <p class="foot__muted" id="f_hours"></p>
+      <p class="foot__muted"><a id="f_tel" href="#" class="foot__link"></a></p>
+      <p class="foot__muted"><a id="f_mail" href="#" class="foot__link"></a></p>
       <p class="foot__muted" id="f_del">We deliver within 7 km of the shop.</p>
       <p class="foot__muted foot__small" id="f_out">Outside 7 km, please order us on Talabat or noon.</p>
     </div>
@@ -447,7 +475,7 @@ function applyLang(){
   setDelBar(inRange===true?"ok":inRange===false?"no":"", 
     inRange===null?delText("note"):$("delbar_txt").textContent);
   $("delcheck").textContent=lang==="ar"?"تحقق من عنواني":"Check my address";
-  drawChips();drawGrid();drawCart();drawFooter();drawRangeHint();
+  drawChips();drawGrid();drawCart();drawHero();drawFooter();drawRangeHint();
 }
 
 function drawRangeHint(){
@@ -519,6 +547,42 @@ function checkDistance(){
   },{enableHighAccuracy:false,timeout:10000,maximumAge:600000});
 }
 
+/* Opening hours. Times are plain "HH:MM" strings; a closing time earlier than
+   the opening time means it runs past midnight, which is how a grocery actually
+   trades — 10:00 to 00:00 is fourteen hours, not minus ten. */
+function hoursOpenNow(){
+  var c=SHOP.contact||{};
+  if(!c.hoursFrom||!c.hoursTo)return null;
+  function mins(t){var p=String(t).split(":");return (+p[0])*60+(+(p[1]||0))}
+  var now=new Date(), n=now.getHours()*60+now.getMinutes();
+  var a=mins(c.hoursFrom), b=mins(c.hoursTo);
+  if(b===0)b=1440;                 // midnight written as 00:00
+  if(b<=a)return n>=a||n<b;        // wraps past midnight
+  return n>=a&&n<b;
+}
+function hoursLabel(){
+  var c=SHOP.contact||{};
+  if(!c.hoursFrom)return "";
+  var to=c.hoursTo==="00:00"?(lang==="ar"?"منتصف الليل":"midnight"):c.hoursTo;
+  var every=lang==="ar"?(c.hoursNoteAr||""):(c.hoursNote||"");
+  return (every?every+" · ":"")+c.hoursFrom+" – "+to;
+}
+
+function drawHero(){
+  var about=lang==="ar"?(SHOP.aboutAr||SHOP.about||""):(SHOP.about||"");
+  $("hero_about").textContent=about;
+  var loc=shopLoc(), open=hoursOpenNow();
+  var dot=open===null?"":'<span class="dot '+(open?"dot--on":"dot--off")+'"></span>';
+  var word=open===null?"":(open?(lang==="ar"?"مفتوح الآن":"Open now")
+                                :(lang==="ar"?"مغلق الآن":"Closed now"));
+  $("fact_hours").innerHTML=dot+'<b>'+esc(word)+'</b> '+esc(hoursLabel());
+  var area=lang==="ar"?(loc.areaNameAr||loc.areaName||""):(loc.areaName||"");
+  $("fact_where").textContent=area;
+  $("fact_where").hidden=!area;
+  $("fact_map").href=loc.mapUrl||"#";
+  $("fact_map").textContent=lang==="ar"?"الخريطة ↗":"Map ↗";
+}
+
 function drawFooter(){
   var loc=shopLoc(), L=SHOP.links||{};
   $("foot_n").textContent=lang==="ar"?(SHOP.nameAr||SHOP.name):SHOP.name;
@@ -534,6 +598,15 @@ function drawFooter(){
   $("f_area").textContent=area||(lang==="ar"?"اضغط على الخريطة للعنوان الكامل":"Tap the map for the full address");
   $("f_map").href=loc.mapUrl||"#";
   $("f_map").textContent=(lang==="ar"?"افتح في خرائط جوجل":"Open in Google Maps")+" →";
+
+  var c=SHOP.contact||{};
+  $("f_hours").textContent=hoursLabel();
+  $("f_tel").textContent=c.phone||"";
+  $("f_tel").href=c.phoneDial?"tel:+"+c.phoneDial:"#";
+  $("f_tel").parentNode.hidden=!c.phone;
+  $("f_mail").textContent=c.email||"";
+  $("f_mail").href=c.email?"mailto:"+c.email:"#";
+  $("f_mail").parentNode.hidden=!c.email;
 
   var num=String(SHOP.whatsapp||"").replace(/[^\d]/g,"");
   $("f_wa").href=num?"https://wa.me/"+num:"#";
