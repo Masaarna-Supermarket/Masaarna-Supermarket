@@ -9,7 +9,7 @@
    No slash at the end.
    ═══════════════════════════════════════════════════════════════════════ */
 
-window.MASAARNA_API = "";
+window.MASAARNA_API = "https://masaarna.masaarna.workers.dev";
 
 /* Leave it empty and the shop falls back to reading products.json from this
    folder, exactly as it did before. Nothing breaks — it is just manual again. */

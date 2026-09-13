@@ -803,6 +803,9 @@ function readShop(){
   });
   // the shop page dials this, so keep it in step with the number shown
   if(sh.contact) sh.contact.phoneDial=String(sh.contact.phone||"").replace(/[^0-9]/g,"");
+  // and the catalog carries the server address, so an empty config.js on the
+  // website cannot quietly cut the shop off from everything you publish
+  if(oapi()) sh.api=oapi();
 }
 /* A number still holding letters ("9715XXXXXXXX") loses them and opens a chat
    with "9715" — a dead link that looks fine until a customer tries it. */
@@ -835,6 +838,22 @@ function akey(){ return $("okey").value.trim() }
    Every request below is sent the way a stranger would send it: no key, or a
    key that is wrong. A 401 back is the lock working. */
 function secmsg(t,k){ $("secmsg").className="msg msg--"+(k||"inf"); $("secmsg").innerHTML=t }
+
+/* If THIS page was served from your website and config.js came through empty,
+   then the shop next to it is equally blind — it will show old products no
+   matter how many times you press Publish. That is invisible from the shop
+   itself, so it gets said here, loudly, once. */
+(function(){
+  if(location.protocol==="file:")return;                 // opened from disk: not the website
+  if(String(window.MASAARNA_API||"").trim())return;      // config.js is fine
+  var w=document.createElement("div");
+  w.style.cssText="background:#b91c1c;color:#fff;padding:.8rem 1rem;font-size:.9rem;line-height:1.5";
+  w.innerHTML="<strong>config.js on your website is empty.</strong> Your shop is showing the old "+
+    "products.json and cannot see anything you publish here. Open config.js on your computer, put "+
+    "your shop address between the quotes, and upload that one file to GitHub. "+
+    "<em>The manager still works \u2014 it is the shop that is cut off.</em>";
+  document.body.insertBefore(w,document.body.firstChild);
+})();
 
 $("sectest").onclick=function(){
   var api=oapi();

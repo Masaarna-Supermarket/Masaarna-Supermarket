@@ -184,6 +184,33 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
 .fld{display:flex;flex-direction:column;gap:.2rem}
 .fld span{font-size:.75rem;color:var(--faint);font-weight:500}
 .fld input,.fld select,.fld textarea{border:1px solid var(--line2);background:var(--card);border-radius:9px;padding:.45rem .6rem;font-size:.88rem;width:100%;font-family:inherit}
+/* the search box that lives inside the panel */
+.isearch{position:relative;padding:.7rem 1.1rem .3rem;flex:none}
+.isearch input{width:100%;padding:.62rem .9rem .62rem 2.35rem;border:1px solid var(--line2);
+ border-radius:11px;background:var(--card);font-size:1rem}
+body[dir="rtl"] .isearch input{padding:.62rem 2.35rem .62rem .9rem}
+.isearch svg{position:absolute;left:1.75rem;top:calc(50% + .2rem);transform:translateY(-50%);
+ width:17px;height:17px;color:var(--faint);pointer-events:none}
+body[dir="rtl"] .isearch svg{left:auto;right:1.75rem}
+
+/* the category grid */
+.cats{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;padding:.2rem 0 1rem}
+@media(min-width:520px){.cats{grid-template-columns:repeat(3,1fr)}}
+.cbtn{display:flex;flex-direction:column;align-items:flex-start;gap:.15rem;text-align:start;
+ border:1px solid var(--line2);background:var(--card);border-radius:12px;padding:.7rem .75rem;
+ cursor:pointer;font:inherit;color:inherit;min-height:3.9rem;justify-content:center}
+.cbtn:hover,.cbtn.on{border-color:var(--saffron);color:var(--saffron)}
+.cbtn b{font-weight:500;font-size:.86rem;line-height:1.25}
+.cbtn span{font-size:.72rem;color:var(--faint);font-variant-numeric:tabular-nums}
+.cbtn.on span{color:inherit;opacity:.75}
+.cbtn--offers{border-color:var(--pistachio);color:var(--pistachio)}
+
+/* a search result you can add without leaving the panel */
+.sres{display:flex;align-items:center;gap:.7rem;padding:.55rem 0;border-bottom:1px solid var(--line)}
+.sres:last-child{border-bottom:none}
+.sres .ln b{font-size:.85rem}
+.sres .step{flex:none}
+
 /* the Contact and My details panels */
 .info{display:flex;flex-direction:column;gap:.1rem;padding:.2rem 0 1rem}
 .info h4{font-family:var(--display);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;
@@ -362,9 +389,9 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
 </div></div>
 
 <nav class="tabs" id="tabs" aria-label="Shop">
-  <button class="tab" id="t_home" type="button">
-    <svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg>
-    <span id="t_home_l">Home</span></button>
+  <button class="tab" id="t_cats" type="button">
+    <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></svg>
+    <span id="t_cats_l">Categories</span></button>
   <button class="tab" id="t_search" type="button">
     <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <span id="t_search_l">Search</span></button>
@@ -385,6 +412,10 @@ body[dir="rtl"] .flag{right:auto;left:.45rem}
   <div class="sheet__bg" id="ibg"></div>
   <div class="sheet__p">
     <div class="sheet__h"><h2 id="i_title"></h2><button class="ib" id="iclose" aria-label="Close">✕</button></div>
+    <div class="isearch" id="i_search" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="i_q" type="search" autocomplete="off" enterkeyhint="search">
+    </div>
     <div class="sheet__l"><div class="info" id="i_body"></div></div>
   </div>
 </div>
@@ -538,6 +569,8 @@ function drawCart(){
   $("bn2").textContent=n;$("bt").textContent=money(sub);
   $("t_cart_b").textContent=n>99?"99+":n;
   $("t_cart_b").hidden=!n;
+  // a + tapped in the search panel must update the row it was tapped on
+  if($("isheet").className.indexOf("on")>-1&&$("i_title").dataset.kind==="search")drawSearchResults();
   $("lines").innerHTML=L.length?L.map(function(l){
     return '<div class="li">'+tile(l.p,1)+'<span class="ln"><b>'+esc(l.p.name)+'</b>'+
       '<span>'+l.q+' × '+money(l.p.price)+'</span></span>'+
@@ -596,14 +629,16 @@ function applyLang(){
   setDelBar(inRange===true?"ok":inRange===false?"no":"", 
     inRange===null?delText("note"):$("delbar_txt").textContent);
   $("delcheck").textContent=lang==="ar"?"تحقق من عنواني":"Check my address";
-  $("t_home_l").textContent=lang==="ar"?"الرئيسية":"Home";
+  $("t_cats_l").textContent=lang==="ar"?"الأقسام":"Categories";
   $("t_search_l").textContent=lang==="ar"?"بحث":"Search";
   $("t_cart_l").textContent=lang==="ar"?"السلة":"Basket";
   $("t_me_l").textContent=lang==="ar"?"بياناتي":"My details";
   $("t_contact_l").textContent=lang==="ar"?"اتصل بنا":"Contact";
   if($("isheet").className.indexOf("on")>-1){
     // a panel open while the language flips must redraw in the new language
-    if($("i_title").dataset.kind==="me")drawMe();else drawContact();
+    var k=$("i_title").dataset.kind;
+    if(k==="me")drawMe(); else if(k==="cats")drawCats();
+    else if(k==="search")drawSearch(); else drawContact();
   }
   drawChips();drawGrid();drawCart();drawHero();drawFooter();drawRangeHint();
 }
@@ -811,8 +846,25 @@ function icon(name){
   return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>';
 }
 
+var hopped=false;
 function boot(data){
   SHOP=data.shop||{};CATS=data.categories||[];
+
+  /* Belt and braces. config.js is one line in one file, and one empty line in it
+     means the shop quietly serves whatever products.json happens to be sitting
+     next to it — looking perfectly fine while every change you publish goes
+     somewhere the shop is not looking. So the catalog carries the address too:
+     if we arrived here from the file and the file knows where the server is,
+     go and ask the server instead. Once only. */
+  if(!API&&SHOP.api&&!hopped){
+    hopped=true;
+    API=String(SHOP.api).replace(/\/+$/,"");
+    fetch(API+"/catalog",{cache:"no-cache"})
+      .then(function(r){ if(!r.ok)throw 0; return r.json() })
+      .then(function(d){ lastLoad=Date.now(); boot(d) })
+      .catch(function(){});   // the file we already have is a fine fallback
+  }
+
   var all=data.products||[];
   // visible:0 keeps a product in the file but off the shop. Anything without the
   // field at all is treated as visible, so older product files still work.
@@ -838,13 +890,14 @@ $("theme").onclick=function(){
 /* While a panel is open the page behind it must not scroll, or a phone scrolls
    the shop under your finger instead of the basket in front of you. */
 function setTab(id){
-  ["t_home","t_search","t_cart","t_me","t_contact"].forEach(function(x){
+  ["t_cats","t_search","t_cart","t_me","t_contact"].forEach(function(x){
     $(x).className="tab"+(x===id?" on":"");
     $(x).setAttribute("aria-current",x===id?"page":"false");
   });
 }
 function openSheet(id,tab){
   closeSheet(true);
+  $("i_search").hidden=true;       // only the Search panel wants a search box
   $(id).className="sheet on";
   document.body.classList.add("locked");
   if(tab)setTab(tab);
@@ -853,7 +906,7 @@ function closeSheet(keepTab){
   $("sheet").className="sheet";
   $("isheet").className="sheet";
   document.body.classList.remove("locked");
-  if(!keepTab)setTab("t_home");
+  if(!keepTab)setTab("t_cats");
 }
 function sheetOpen(){
   return $("sheet").className.indexOf("on")>-1 || $("isheet").className.indexOf("on")>-1;
@@ -869,15 +922,18 @@ document.addEventListener("keydown",function(e){ if(e.key==="Escape")closeSheet(
 /* ── the bottom tab bar ────────────────────────────────────────────────────
    Five things a customer actually does on a phone. It only exists below the
    tablet width; on a desktop the header already has all of it. */
-$("t_home").onclick=function(){
-  cat="";$("q").value="";drawChips();drawGrid();closeSheet();
-  window.scrollTo({top:0,behavior:"smooth"});
-};
+$("t_cats").onclick=function(){ drawCats(); openSheet("isheet","t_cats") };
+
+/* Searching used to throw the page back to the top, which loses your place in
+   the shop for no reason. It happens in its own panel now: type, tap +, done —
+   the grid behind you never moves. */
 $("t_search").onclick=function(){
-  closeSheet(true);setTab("t_search");
-  window.scrollTo({top:0,behavior:"smooth"});
-  setTimeout(function(){ $("q").focus() },260);
+  drawSearch();
+  openSheet("isheet","t_search");
+  $("i_search").hidden=false;
+  setTimeout(function(){ $("i_q").focus() },120);
 };
+$("i_q").oninput=function(){ drawSearchResults() };
 $("t_cart").onclick=function(){ openSheet("sheet","t_cart") };
 $("t_me").onclick=function(){ drawMe(); openSheet("isheet","t_me") };
 $("t_contact").onclick=function(){ drawContact(); openSheet("isheet","t_contact") };
@@ -894,6 +950,74 @@ var I={
   user:"M4.8 20a7.2 7.2 0 0 1 14.4 0",
   truck:"M3 7h11v9H3zM14 10h3.5l2.5 3v3h-6M6.5 19a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8zM17 19a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8z"
 };
+
+/* The category strip along the top scrolls out of sight the moment you start
+   browsing. This is the same list, reachable from the bottom bar at any point,
+   laid out so the whole shop fits on one screen instead of a sideways scroll. */
+function drawCats(){
+  $("i_title").textContent=lang==="ar"?"الأقسام":"Categories";
+  $("i_title").dataset.kind="cats";
+  var tot=CATS.reduce(function(x,c){return x+c.count},0);
+  var noff=ITEMS.filter(onOffer).length;
+  var h='<div class="cats">';
+  h+='<button class="cbtn'+(cat===""?" on":"")+'" data-c=""><b>'+esc(t().allc)+
+     '</b><span>'+tot+'</span></button>';
+  if(noff)h+='<button class="cbtn cbtn--offers'+(cat==="__offers"?" on":"")+'" data-c="__offers"><b>'+
+     (lang==="ar"?"العروض":"Offers")+'</b><span>'+noff+'</span></button>';
+  CATS.forEach(function(c){
+    h+='<button class="cbtn'+(cat===c.key?" on":"")+'" data-c="'+esc(c.key)+'"><b>'+
+       esc(lang==="ar"?c.ar:c.key)+'</b><span>'+c.count+'</span></button>';
+  });
+  h+='</div>';
+  $("i_body").innerHTML=h;
+  Array.prototype.forEach.call($("i_body").querySelectorAll(".cbtn"),function(b){
+    b.onclick=function(){
+      cat=b.getAttribute("data-c");
+      $("q").value="";
+      drawChips();drawGrid();closeSheet();
+      window.scrollTo({top:0,behavior:"smooth"});
+    };
+  });
+}
+
+function drawSearch(){
+  $("i_title").textContent=lang==="ar"?"ابحث":"Search";
+  $("i_title").dataset.kind="search";
+  $("i_q").placeholder=t().search;
+  drawSearchResults();
+}
+/* Results you can add straight to the basket. Anything else means a customer
+   who found what they wanted still has to go and find it a second time. */
+function drawSearchResults(){
+  var q=$("i_q").value.trim().toLowerCase();
+  if(!q){
+    $("i_body").innerHTML='<div class="irow"><span><b>'+
+      (lang==="ar"?"ابحث عن أي منتج":"Search for anything")+'</b><small>'+
+      (lang==="ar"?"بالاسم أو الباركود أو القسم — "+ITEMS.length+" منتج"
+                 :"By name, barcode or category — "+ITEMS.length+" products")+
+      '</small></span></div>';
+    return;
+  }
+  var r=ITEMS.filter(function(p){
+    return p.name.toLowerCase().indexOf(q)>-1||p.sku.indexOf(q)>-1||
+           p.cat.toLowerCase().indexOf(q)>-1;
+  }).slice(0,60);
+  if(!r.length){
+    $("i_body").innerHTML='<div class="irow"><span><b>'+t().empty+'</b><small>'+t().emptyd+'</small></span></div>';
+    return;
+  }
+  $("i_body").innerHTML=r.map(function(p){
+    var n=cart[p.sku]||0;
+    return '<div class="sres">'+tile(p,1)+
+      '<span class="ln"><b>'+esc(p.name)+'</b><span>'+money(p.price)+
+      (p.weight?" · "+esc(p.weight):"")+'</span></span>'+
+      (n?'<span class="step"><button data-m="'+p.sku+'">−</button><span class="q">'+n+
+         '</span><button data-a="'+p.sku+'">+</button></span>'
+        :'<button class="add" data-a="'+p.sku+'" aria-label="Add">+</button>')+
+      '</div>';
+  }).join("");
+  wire($("i_body"));
+}
 
 /* Everything a customer needs to reach the shop, in one place, one tap away. */
 function drawContact(){
