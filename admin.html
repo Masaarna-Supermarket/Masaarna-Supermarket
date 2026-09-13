@@ -200,6 +200,16 @@ body.hasunsaved{padding-bottom:5rem}
 .vrow>.vlbl{color:var(--ink2);flex:1}
 .vrow>.vdet{color:var(--faint);font-size:.74rem;flex:none;text-align:right}
 .vrow>button{flex:none}
+.prev{border:1px solid var(--line2);border-radius:10px;padding:.75rem .85rem;background:var(--card)}
+.prev h4{margin:0 0 .4rem;font-size:.74rem;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+.prev ul{margin:.2rem 0 .5rem;padding-inline-start:1.1rem;font-size:.84rem;line-height:1.6}
+.prev .warn{background:#fdf1e0;border-inline-start:3px solid var(--saffron);
+ padding:.55rem .7rem;border-radius:7px;margin:.5rem 0;font-size:.85rem;line-height:1.5;color:#7c3d05}
+.prev .row{margin-top:.6rem}
+.lg .vrow{gap:.6rem}
+.lg time{min-width:11.5rem}
+.lg .kind{flex:none;min-width:4.6rem;font-size:.66rem;letter-spacing:.05em;text-transform:uppercase;
+ color:var(--faint);font-weight:700}
 .vrow span{color:var(--ink2)}
 </style>
 <script src="config.js"></script>
@@ -420,6 +430,19 @@ body.hasunsaved{padding-bottom:5rem}
   </div>
 
 <div class="tools" style="margin-top:1rem">
+    <h3>What happened, and when</h3>
+    <p class="hint" style="margin:-.2rem 0 .55rem">
+      Every publish, undo, order status and stock movement, newest first.
+      All times are Dubai time.
+    </p>
+    <div class="row">
+      <button class="btn" id="lgload">Show the log</button>
+      <span class="msg msg--inf" id="lgmsg"></span>
+    </div>
+    <div id="lglist" class="lg" style="margin-top:.5rem"></div>
+  </div>
+
+<div class="tools" style="margin-top:1rem">
     <h3>Orders</h3>
     <p class="hint" style="margin:-.2rem 0 .55rem">
       Uses the same address and key as above.
@@ -446,16 +469,20 @@ body.hasunsaved{padding-bottom:5rem}
   </div>
 
   <div class="tools" style="margin-top:1rem">
-    <h3>Undo a publish</h3>
+    <h3>Undo</h3>
     <p class="hint" style="margin:-.2rem 0 .55rem">
-      The last 20 publishes are kept. Going back is itself a publish, so you can
-      always come forward again.
+      <strong>Undo only touches products and shop details.</strong> Your orders are kept
+      separately and are never changed by it — an order that arrives while you are editing
+      is safe. The one thing to watch is stock you have taken off for delivered orders, and
+      you are shown that before anything happens.
     </p>
     <div class="row">
-      <button class="btn" id="vload">Show past publishes</button>
+      <button class="btn btn--go" id="vundo">Undo my last publish</button>
+      <button class="btn" id="vload">Choose an older one…</button>
       <button class="btn" id="vdl">Download a backup of what is live</button>
       <span class="msg msg--inf" id="vmsg"></span>
     </div>
+    <div id="vpreview" style="margin-top:.6rem" hidden></div>
     <div id="vlist" style="margin-top:.5rem"></div>
   </div>
 </main>
@@ -1404,7 +1431,7 @@ function loadVersions(keepMsg){
          : Math.round((x.bytes||0)/1024)+" KB";
        return '<div class="vrow"'+(live?' style="background:var(--sunk);border-radius:8px"':'')+'>'+
          '<b>v'+x.version+'</b>'+
-         '<time>'+esc(x.updated_at||"")+'</time>'+
+         '<time>'+esc(dubai(x.updated_at))+'</time>'+
          '<span class="vlbl">'+esc(counts)+(x.note?" · "+esc(x.note):"")+'</span>'+
          (live?'<span class="pill p-ok">live</span>'
               :'<button class="btn" data-restore="'+x.version+'">Go back to this</button>')+
@@ -1414,23 +1441,125 @@ function loadVersions(keepMsg){
        v.length+" publish(es) kept \u2014 the oldest drops off once there are more than 20.","ok");
    }).catch(function(e){ vmsg(e.message,"bad") });
 }
-function vmsg(t,k){ $("vmsg").className="msg msg--"+(k||"inf"); $("vmsg").textContent=t }
+function vmsg(t,k){ $("vmsg").className="msg msg--"+(k||"inf"); $("vmsg").innerHTML=t }
+
+/* The server stores UTC, because that is the only time that never argues with
+   itself. The shop is in Dubai, so that is what gets shown — no offsets to work
+   out, just the clock on the wall. */
+function dubai(utc){
+  if(!utc)return "";
+  var iso=String(utc).trim().replace(" ","T");
+  if(!/[Zz]$|[+-]\d\d:?\d\d$/.test(iso))iso+="Z";
+  var d=new Date(iso);
+  if(isNaN(d))return String(utc);
+  try{
+    return new Intl.DateTimeFormat(ALANG==="ar"?"ar-AE":"en-GB",{
+      timeZone:"Asia/Dubai", day:"2-digit", month:"short", year:"numeric",
+      hour:"2-digit", minute:"2-digit", hour12:true }).format(d);
+  }catch(e){
+    var t=new Date(d.getTime()+4*3600*1000);   // Dubai is UTC+4 the whole year
+    return t.toISOString().replace("T"," ").slice(0,16);
+  }
+}
+
+/* ── the log ────────────────────────────────────────── */
+var KINDW={publish:"Publish",undo:"Undo",status:"Status",stock:"Stock",order:"Order"};
+var KINDAR={publish:"نشر",undo:"تراجع",status:"حالة",stock:"مخزون",order:"طلب"};
+$("lgload").onclick=function(){
+  if(!oapi()||!akey()){ $("lgmsg").className="msg msg--bad";
+    $("lgmsg").textContent="Shop address and admin key first."; return }
+  $("lgmsg").className="msg msg--inf"; $("lgmsg").textContent="Loading…";
+  fetch(oapi()+"/activity?limit=120",{headers:{"X-Admin-Key":akey()}})
+   .then(function(r){ return r.json().then(function(j){ if(!r.ok)throw new Error(j.error||r.status); return j }) })
+   .then(function(d){
+     if(d.tableMissing){
+       $("lgmsg").className="msg msg--bad";
+       $("lgmsg").innerHTML="The log table does not exist yet. Run "+
+         "<code>npx wrangler d1 execute masaarna --remote --file=schema.sql</code> once.";
+       return;
+     }
+     var a=d.activity||[];
+     $("lglist").innerHTML=a.length?a.map(function(x){
+       var k=(ALANG==="ar"?KINDAR:KINDW)[x.kind]||x.kind;
+       return '<div class="vrow"><span class="kind">'+esc(k)+'</span>'+
+         '<time>'+esc(dubai(x.at))+'</time>'+
+         '<span class="vlbl">'+esc(x.summary)+'</span>'+
+         (x.detail?'<span class="vdet">'+esc(x.detail)+'</span>':'')+'</div>';
+     }).join(""):'<p class="hint">Nothing recorded yet.</p>';
+     $("lgmsg").className="msg msg--ok";
+     $("lgmsg").textContent=a.length+" entr"+(a.length===1?"y":"ies")+", newest first.";
+   })
+   .catch(function(e){ $("lgmsg").className="msg msg--bad"; $("lgmsg").textContent=e.message });
+};
+
+/* ── undo, with a look before you leap ──────────────── */
+function preview(version, onGo){
+  if(!oapi()||!akey())return vmsg("Shop address and admin key first.","bad");
+  vmsg("Working out what would change…","inf");
+  fetch(oapi()+"/catalog/compare"+(version?"?version="+version:""),{headers:{"X-Admin-Key":akey()}})
+   .then(function(r){ return r.json().then(function(j){ if(!r.ok)throw new Error(j.error||r.status); return j }) })
+   .then(function(d){
+     var t=d.diff||{}, h="<div class='prev'>";
+     h+="<h4>Going back from v"+d.from+" to v"+d.to+" &middot; "+esc(dubai(d.toUpdated))+"</h4>";
+     var li=[];
+     function ex(list,fmt){ return list.slice(0,3).map(fmt).join("; ")+(list.length>3?" and "+(list.length-3)+" more":"") }
+     if(t.priceChanged&&t.priceChanged.length)
+       li.push("<li><strong>"+t.priceChanged.length+" price(s)</strong> would change — "+
+         esc(ex(t.priceChanged,function(x){return x.name+" "+x.from+" \u2192 "+x.to}))+"</li>");
+     if(t.stockChanged&&t.stockChanged.length)
+       li.push("<li><strong>"+t.stockChanged.length+" stock number(s)</strong> would change — "+
+         esc(ex(t.stockChanged,function(x){return x.name+" "+x.from+" \u2192 "+x.to}))+"</li>");
+     if(t.added&&t.added.length)
+       li.push("<li><strong>"+t.added.length+" product(s)</strong> would come back — "+esc(ex(t.added,function(x){return x}))+"</li>");
+     if(t.removed&&t.removed.length)
+       li.push("<li><strong>"+t.removed.length+" product(s)</strong> would disappear — "+esc(ex(t.removed,function(x){return x}))+"</li>");
+     if(t.shownChanged)
+       li.push("<li><strong>"+t.shownChanged+"</strong> would be shown or hidden differently</li>");
+     if(t.shopChanged)
+       li.push("<li>Your <strong>shop details</strong> would change back too</li>");
+     h+= li.length ? "<ul>"+li.join("")+"</ul>"
+       : "<p style='font-size:.86rem;color:var(--ink2)'>Nothing would change — that version is the same as what is live.</p>";
+
+     if(d.stockAtRisk&&d.stockAtRisk.length){
+       h+="<div class='warn'><strong>Careful — "+d.stockAtRisk.length+" order(s) had stock taken off after that version.</strong> "+
+          "Going back puts that stock back on the shelf while those orders still say <em>taken off</em>, "+
+          "so those counts would need correcting by hand. Your orders themselves are not touched.</div>";
+     } else {
+       h+="<p style='font-size:.82rem;color:var(--faint);margin:.4rem 0 0'>"+
+          "No stock has been taken off since then, and orders are never touched by an undo.</p>";
+     }
+     h+="<div class='row'><button class='btn btn--go' id='vgo'>Yes, go back to v"+d.to+"</button>"+
+        "<button class='btn' id='vcancel'>Leave it as it is</button></div></div>";
+     $("vpreview").innerHTML=h; $("vpreview").hidden=false;
+     vmsg("Read this, then decide.","inf");
+     $("vgo").onclick=function(){ $("vpreview").hidden=true; doUndo(version||null) };
+     $("vcancel").onclick=function(){ $("vpreview").hidden=true; vmsg("Left alone. Nothing changed.","ok") };
+   })
+   .catch(function(e){ vmsg(e.message,"bad") });
+}
+
+$("vundo").onclick=function(){ preview(0) };
+
+function doUndo(v){
+  vmsg("Going back…","inf");
+  fetch(v?oapi()+"/catalog/restore":oapi()+"/catalog/undo",{method:"POST",
+      headers:{"Content-Type":"application/json","X-Admin-Key":akey()},
+      body:JSON.stringify(v?{version:v}:{})})
+   .then(function(r){ return r.json().then(function(j){ if(!r.ok)throw new Error(j.error||r.status); return j }) })
+   .then(function(j){
+     vmsg("<strong>Done.</strong> v"+j.restoredFrom+" is back on the shop, saved as v"+j.version+
+          ". Your orders are exactly as they were.","ok");
+     if($("vlist").innerHTML)loadVersions(true);
+     pull(true).catch(function(){});
+     if($("lglist").innerHTML)$("lgload").click();
+   })
+   .catch(function(e){ vmsg(e.message,"bad") });
+}
 $("vload").onclick=function(){loadVersions(false)};
 $("vlist").onclick=function(e){
   var b=e.target.closest?e.target.closest("[data-restore]"):null; if(!b)return;
-  var v=b.getAttribute("data-restore");
-  var row=null;
-  try{ row=$("vlist").querySelector('[data-restore="'+v+'"]').closest(".vrow").innerText.replace(/\s+/g," ").trim() }catch(e){}
-  if(!confirm("Put version "+v+" back on the shop?\n\n"+(row?row+"\n\n":"")+
-    "Nothing is lost: this is itself a new publish, so the version that is live now stays in the list and you can come forward again."))return;
-  vmsg("Restoring…","inf");
-  fetch(oapi()+"/catalog/restore",{method:"POST",
-      headers:{"Content-Type":"application/json","X-Admin-Key":akey()},
-      body:JSON.stringify({version:parseInt(v,10)})})
-   .then(function(r){ return r.json().then(function(j){ if(!r.ok)throw new Error(j.error||r.status); return j }) })
-   .then(function(j){ vmsg("Version "+v+" is back on the shop, saved as v"+j.version+".","ok");
-                      loadVersions(true); pull(true).catch(function(){}) })
-   .catch(function(e){ vmsg(e.message,"bad") });
+  // the same look-before-you-leap as the one-step undo
+  preview(parseInt(b.getAttribute("data-restore"),10), function(v){ doUndo(v) });
 };
 $("vdl").onclick=function(){
   if(!oapi()||!akey())return vmsg("Shop address and admin key first.","bad");
@@ -1672,7 +1801,7 @@ $("oload").onclick=function(){
      }
      $("orows").innerHTML=o.length?o.map(function(x){
        return "<tr data-ref='"+esc(x.ref)+"'><td style='font-size:.76rem'>"+esc(x.ref)+"</td>"+
-         "<td style='font-size:.76rem'>"+esc(String(x.created_at||"").slice(0,16))+"</td>"+
+         "<td style='font-size:.76rem'>"+esc(dubai(x.created_at))+"</td>"+
          "<td>"+esc(x.customer_name||"")+"</td><td>"+esc(x.customer_phone||"")+"</td>"+
          "<td>"+esc(x.area||"")+"</td><td class='e--n'>"+(x.item_count||0)+"</td>"+
          "<td class='e--n'>AED "+Number(x.total||0).toFixed(2)+"</td>"+
